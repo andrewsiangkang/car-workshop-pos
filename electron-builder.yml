@@ -1,0 +1,27 @@
+appId: com.workshop.pos
+productName: 修车店POS
+directories:
+  output: dist
+files:
+  - electron/**/*
+  - package.json
+extraResources:
+  - from: .next/standalone
+    to: app-server
+  - from: .next/static
+    to: app-server/.next/static
+  - from: public
+    to: app-server/public
+  - from: prisma/template.db
+    to: template.db
+win:
+  target:
+    - target: nsis
+      arch: x64
+  artifactName: "WorkshopPOS-Setup-${version}.${ext}"
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
