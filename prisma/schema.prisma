@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  STAFF
+  TECHNICIAN
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  QUOTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  TNG
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STAFF)
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workOrdersCreated  WorkOrder[] @relation("CreatedBy")
+  workOrdersAssigned WorkOrder[] @relation("AssignedTo")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  tin       String?  // for e-Invoice
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicles   Vehicle[]
+  workOrders WorkOrder[]
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  plateNumber String   @unique
+  make        String
+  model       String
+  year        Int?
+  color       String?
+  vin         String?
+  mileage     Int?
+  notes       String?
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrders WorkOrder[]
+}
+
+model WorkOrder {
+  id            String          @id @default(cuid())
+  orderNumber   String          @unique // internal job number e.g. WO20261110001
+
+  // Document numbers
+  quotationNumber String?       // QT20261110001
+  invoiceNumber   String?       // INV20261110001
+  receiptNumber   String?       // RC20261110001
+
+  status        WorkOrderStatus @default(DRAFT)
+  description   String?         // customer complaint
+  diagnosis     String?
+  laborNotes    String?
+  mileageIn     Int?
+  mileageOut    Int?
+
+  totalAmount   Float           @default(0)
+  partsAmount   Float           @default(0)
+  laborAmount   Float           @default(0)
+  discount      Float           @default(0)
+  taxRate       Float           @default(0)     // SST % applied (snapshot)
+  taxScope      String          @default("ALL") // "ALL" or "LABOR" (snapshot)
+  taxAmount     Float           @default(0)     // SST charged; totalAmount includes it
+  creditedAmount Float          @default(0)     // total of credit notes issued against this invoice
+  consolidatedId String?                        // ConsolidatedInvoice that reported this invoice to LHDN
+  paidAmount    Float           @default(0)
+
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  quotedAt      DateTime?
+  confirmedAt   DateTime?
+  completedAt   DateTime?
+  invoicedAt    DateTime?
+  paidAt        DateTime?
+
+  // e-Invoice fields (for later)
+  eInvoiceUuid  String?
+  eInvoiceLongId String?
+  eInvoiceStatus String?        // pending / valid / invalid / cancelled
+
+  customerId    String
+  customer      Customer        @relation(fields: [customerId], references: [id])
+  vehicleId     String
+  vehicle       Vehicle         @relation(fields: [vehicleId], references: [id])
+  createdById   String
+  createdBy     User            @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedToId  String?
+  assignedTo    User?           @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  items         WorkOrderItem[]
+  payments      Payment[]
+  stockMovements StockMovement[]
+  creditNotes    CreditNote[]
+}
+
+model WorkOrderItem {
+  id              String         @id @default(cuid())
+  type            String         // "PART" or "LABOR"
+  description     String
+  quantity        Float          @default(1)
+  unitPrice       Float
+  costPrice       Float          @default(0)
+  total           Float
+  workOrderId     String
+  workOrder       WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  amount      Float
+  method      PaymentMethod @default(CASH)
+  reference   String?       // TNG / Transfer reference number
+  notes       String?
+  paidAt      DateTime      @default(now())
+  workOrderId String
+  workOrder   WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  amount      Float
+  category    String?
+  notes       String?
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// Shop profile for documents & e-Invoice
+model ShopProfile {
+  id            String   @id @default(cuid())
+  name          String   // shop name
+  nameMs        String?  // Malay name if any
+  address       String?  // street address line
+  city          String?
+  postcode      String?
+  stateCode     String?  // LHDN state code 01-17
+  phone         String?
+  email         String?
+  tin           String?  // Tax Identification Number
+  brn           String?  // Business Registration Number
+  sstNumber     String?  // SST registration, or "NA"
+  sstRate       Float    @default(0)      // service tax %, e.g. 8. Charged only when sstNumber is set
+  sstScope      String   @default("ALL")  // "ALL" = parts + labour taxed, "LABOR" = labour only
+  msicCode      String?  // industry code
+  msicDesc      String?  // business activity description
+  myInvoisClientId     String?
+  myInvoisClientSecret String?
+  myInvoisSandbox      Boolean  @default(true)
+  bankName      String?
+  bankAccount   String?
+  paymentQrUrl  String?  // URL or path for payment QR image
+  logoUrl       String?
+  receiptFooter String?  // thank you message
+  updatedAt     DateTime @updatedAt
+}
+
+// ===== Inventory =====
+model InventoryItem {
+  id             String   @id @default(cuid())
+  name           String
+  sku            String?  @unique
+  category       String?
+  unit           String   @default("pcs")
+  quantityOnHand Float    @default(0)
+  costPrice      Float    @default(0)
+  sellingPrice   Float    @default(0)
+  minStockLevel  Float    @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  movements      StockMovement[]
+  workOrderItems WorkOrderItem[]
+}
+
+model StockMovement {
+  id              String        @id @default(cuid())
+  type            String        // IN, OUT, ADJUST
+  quantity        Float         // positive for IN, negative for OUT/ADJUST reduction
+  notes           String?
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  workOrderId     String?
+  workOrder       WorkOrder?    @relation(fields: [workOrderId], references: [id])
+  createdAt       DateTime      @default(now())
+}
+
+// ===== Credit notes (refunds / reductions after an invoice is issued) =====
+model CreditNote {
+  id             String    @id @default(cuid())
+  number         String    @unique // CN20261111001
+  amount         Float     // amount credited, incl. SST
+  taxAmount      Float     @default(0) // SST part of amount
+  reason         String
+  refundAmount   Float     @default(0) // money actually paid back to customer
+  refundMethod   String?
+  createdAt      DateTime  @default(now())
+  createdById    String?
+  workOrderId    String
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id])
+  eInvoiceUuid   String?
+  eInvoiceLongId String?
+  eInvoiceStatus String?   // pending / valid / invalid / cancelled / consolidated
+  submissionUid  String?
+}
+
+// ===== Monthly consolidated e-Invoice for buyers who did not ask for one =====
+model ConsolidatedInvoice {
+  id             String   @id @default(cuid())
+  number         String   @unique // CON-202610
+  month          String   @unique // "2026-10"
+  orderCount     Int
+  netAmount      Float
+  taxAmount      Float
+  totalAmount    Float
+  createdAt      DateTime @default(now())
+  eInvoiceUuid   String?
+  eInvoiceLongId String?
+  eInvoiceStatus String?
+  submissionUid  String?
+}

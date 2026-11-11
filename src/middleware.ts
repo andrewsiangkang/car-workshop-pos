@@ -1,0 +1,78 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+const COOKIE = "session";
+
+// Only real static asset types skip the login redirect. (Previously ANY path
+// containing a "." was treated as public.)
+const STATIC_FILE = /\.(?:png|jpe?g|webp|gif|svg|ico|css|js|map|woff2?|ttf|txt)$/i;
+
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "same-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  // Next.js needs inline scripts/styles; blocks framing, plugins and foreign form posts.
+  "Content-Security-Policy":
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; " +
+    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}; ` +
+    `connect-src 'self'${process.env.NODE_ENV === "production" ? "" : " ws:"};`  +
+    " frame-ancestors 'none'; " +
+    "object-src 'none'; base-uri 'self'; form-action 'self'",
+};
+
+function withHeaders(res: NextResponse) {
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
+  return res;
+}
+
+/** CSRF defence: state-changing API calls must come from this app's own origin. */
+function isCrossSite(request: NextRequest) {
+  const m = request.method;
+  if (m === "GET" || m === "HEAD" || m === "OPTIONS") return false;
+  const host = request.headers.get("host");
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).host !== host;
+    } catch {
+      return true;
+    }
+  }
+  // No Origin header: browsers always send one on cross-site POSTs, so allow
+  // (same-origin form posts from older browsers / non-browser tools).
+  return request.headers.get("sec-fetch-site") === "cross-site";
+}
+
+// Edge-compatible: only check cookie presence here.
+// Full HMAC + DB verification happens in the Node runtime (API / server components).
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/api/") && isCrossSite(request)) {
+    return withHeaders(NextResponse.json({ error: "Cross-site request blocked" }, { status: 403 }));
+  }
+
+  const token = request.cookies.get(COOKIE)?.value;
+  const isPublic =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/setup") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    (STATIC_FILE.test(pathname) && !pathname.startsWith("/api/"));
+
+  if (isPublic || token) return withHeaders(NextResponse.next());
+
+  if (pathname.startsWith("/api/")) {
+    return withHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+  }
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.searchParams.set("from", pathname);
+  return withHeaders(NextResponse.redirect(url));
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
