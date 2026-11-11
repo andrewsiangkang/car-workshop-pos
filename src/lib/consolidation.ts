@@ -29,6 +29,7 @@ export function previousMonth() {
 }
 
 /** UTC instants for the start/end of a Malaysian calendar month, plus the LHDN deadline. */
+// 【中文】马来西亚时间（UTC+8）某月的起止时间，以及 LHDN 的申报截止日（次月 7 号）。
 export function monthRange(month: string) {
   const [y, m] = month.split("-").map(Number);
   const start = new Date(Date.UTC(y, m - 1, 1) - MY_OFFSET_MS);
@@ -53,6 +54,7 @@ export type ConsolidationLine = {
   rate: number;
 };
 
+// 【中文】预览某月的合并电子发票：汇总该月没有单独开电子发票的发票，并扣除尚未单独申报的退款单。
 export async function consolidationPreview(month: string) {
   const { start, end, deadline } = monthRange(month);
   const orders = await prisma.workOrder.findMany({

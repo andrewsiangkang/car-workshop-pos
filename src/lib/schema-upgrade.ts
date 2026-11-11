@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,6 +11,7 @@ import { prisma } from "@/lib/prisma";
  * To add something in future: add it to schema.prisma AND here. For new tables use
  * the exact DDL from:  npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script
  */
+// 【中文】新版本新增的字段清单。以后给 schema.prisma 加字段，必须同时加到这里，旧店的数据库才会自动升级。
 const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   // v0.2 — SST
   { table: "ShopProfile", column: "sstRate", ddl: "REAL NOT NULL DEFAULT 0" },
@@ -24,6 +27,7 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "WorkOrder", column: "consolidatedId", ddl: "TEXT" },
 ];
 
+// 【中文】新版本新增的表（含索引）。
 const TABLES: Array<{ table: string; ddl: string[] }> = [
   {
     table: "CreditNote",
@@ -73,6 +77,16 @@ const TABLES: Array<{ table: string; ddl: string[] }> = [
 
 let done: Promise<void> | null = null;
 
+function dataDir() {
+  return process.env.WORKSHOP_DATA_DIR || path.join(process.cwd(), "data");
+}
+
+/** Written when an upgrade fails so the desktop app can warn the user. Removed on success. */
+function statusFile() {
+  return path.join(dataDir(), "upgrade-error.txt");
+}
+
+// 【中文】启动时自动升级旧数据库：①先找出缺什么 ②先备份 ③在一个事务里一次改完（全成功或全不改）。只增不删，不会动已有数据。
 export function ensureSchema() {
   if (!done) {
     done = (async () => {
@@ -84,12 +98,14 @@ export function ensureSchema() {
       // A brand-new empty file (no tables yet) is set up elsewhere; don't touch it.
       if (!existing.has("WorkOrder")) return;
 
+      // 1) Work out what is missing (read-only).
+      const sql: string[] = [];
+      const names: string[] = [];
       for (const t of TABLES) {
         if (existing.has(t.table)) continue;
-        await prisma.$transaction(t.ddl.map((sql) => prisma.$executeRawUnsafe(sql)));
-        console.log(`[schema-upgrade] created table ${t.table}`);
+        sql.push(...t.ddl);
+        names.push(`table ${t.table}`);
       }
-
       const cache = new Map<string, Set<string>>();
       for (const c of COLUMNS) {
         if (!cache.has(c.table)) {
@@ -98,14 +114,33 @@ export function ensureSchema() {
         }
         const cols = cache.get(c.table)!;
         if (cols.size > 0 && !cols.has(c.column)) {
-          await prisma.$executeRawUnsafe(`ALTER TABLE "${c.table}" ADD COLUMN "${c.column}" ${c.ddl}`);
-          cols.add(c.column);
-          console.log(`[schema-upgrade] added ${c.table}.${c.column}`);
+          sql.push(`ALTER TABLE "${c.table}" ADD COLUMN "${c.column}" ${c.ddl}`);
+          names.push(`${c.table}.${c.column}`);
         }
       }
+      if (sql.length === 0) {
+        try { fs.rmSync(statusFile(), { force: true }); } catch {}
+        return;
+      }
+
+      // 2) Safety copy first. If it cannot be made, do NOT touch the database.
+      const dir = path.join(dataDir(), "backups", "pre-upgrade");
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const file = path.join(dir, `workshop-before-upgrade-${stamp}.db`);
+      await prisma.$executeRawUnsafe(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+
+      // 3) Apply everything in one transaction: all or nothing.
+      await prisma.$transaction(sql.map((q) => prisma.$executeRawUnsafe(q)));
+      console.log(`[schema-upgrade] applied: ${names.join(", ")} (backup: ${file})`);
+      try { fs.rmSync(statusFile(), { force: true }); } catch {}
     })().catch((e) => {
       done = null; // retry next time
       console.error("[schema-upgrade] failed", e);
+      try {
+        fs.mkdirSync(dataDir(), { recursive: true });
+        fs.writeFileSync(statusFile(), `${new Date().toISOString()}\n${String(e?.stack || e)}\n`);
+      } catch {}
       throw e;
     });
   }

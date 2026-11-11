@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const MAX_BYTES = 2 * 1024 * 1024;
 
 /** Upload the payment QR image (boss only — it changes what customers pay into). */
+// 【中文】上传图片（仅老板，如收款二维码）：检查真实文件内容（PNG/JPG/WEBP）、限制 2MB，文件名由服务器生成，防止伪装成网页文件。
 export async function POST(request: Request) {
   const denied = await requireOwner();
   if (denied) return denied;

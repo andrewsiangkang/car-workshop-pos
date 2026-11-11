@@ -5,8 +5,10 @@ const COOKIE = "session";
 
 // Only real static asset types skip the login redirect. (Previously ANY path
 // containing a "." was treated as public.)
+// 【中文】只有这些真正的静态文件类型不需要登录。
 const STATIC_FILE = /\.(?:png|jpe?g|webp|gif|svg|ico|css|js|map|woff2?|ttf|txt)$/i;
 
+// 【中文】安全响应头：禁止被嵌入别的网页、禁止猜测文件类型、内容安全策略（CSP）。
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
@@ -27,6 +29,7 @@ function withHeaders(res: NextResponse) {
 }
 
 /** CSRF defence: state-changing API calls must come from this app's own origin. */
+// 【中文】防 CSRF：会修改数据的请求（POST/PUT/DELETE）必须来自本程序自己的网址。
 function isCrossSite(request: NextRequest) {
   const m = request.method;
   if (m === "GET" || m === "HEAD" || m === "OPTIONS") return false;
@@ -46,6 +49,7 @@ function isCrossSite(request: NextRequest) {
 
 // Edge-compatible: only check cookie presence here.
 // Full HMAC + DB verification happens in the Node runtime (API / server components).
+// 【中文】入口：没有登录 cookie 就跳转登录页（API 返回 401）。这里只看 cookie 是否存在，真正的验证在服务器端 requireAuth。
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 

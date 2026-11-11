@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // Secret is generated per installation by the desktop app and passed in via AUTH_SECRET.
+// 【中文】读取本机专属的签名密钥（AUTH_SECRET），用来给登录凭证签名，防止被伪造。
 function getSecret() {
   const s = process.env.AUTH_SECRET;
   if (s && s.length >= 16) return s;
@@ -16,8 +17,10 @@ const COOKIE = "session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days (was 30)
 
 /** Minimum password length for every account. */
+// 【中文】密码最少长度（8 位）。
 export const MIN_PASSWORD_LENGTH = 8;
 
+// 【中文】用密钥对数据做 HMAC 签名。
 function sign(data: string) {
   return crypto.createHmac("sha256", getSecret()).update(data).digest("hex");
 }
@@ -26,16 +29,19 @@ function sign(data: string) {
  * Short fingerprint of the user's current password hash. It is baked into the
  * session token, so changing / resetting a password logs out every old session.
  */
+// 【中文】取密码哈希的指纹：登录凭证绑定它，所以老板重置员工密码后，旧登录立刻失效。
 function passwordFingerprint(passwordHash: string) {
   return sign("pw:" + passwordHash).slice(0, 16);
 }
 
+// 【中文】恒定时间比较，防止通过响应时间差猜出签名。
 function safeEqual(a: string, b: string) {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
   return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
 }
 
+// 【中文】登录成功后生成登录凭证（cookie 内容）：用户ID + 到期时间 + 密码指纹 + 签名。
 export function createSessionToken(userId: string, passwordHash: string) {
   const expiry = Date.now() + MAX_AGE * 1000;
   const payload = `${userId}|${expiry}|${passwordFingerprint(passwordHash)}`;
@@ -45,6 +51,7 @@ export function createSessionToken(userId: string, passwordHash: string) {
 
 type TokenData = { userId: string; fp: string };
 
+// 【中文】解析并校验登录凭证：签名不对或已过期则返回空。
 function decodeSessionToken(token: string): TokenData | null {
   try {
     const decoded = Buffer.from(token, "base64url").toString();
@@ -91,6 +98,7 @@ export type CurrentUser = {
  * Load the logged-in user fresh from the DB, so role changes, deletions and
  * password resets take effect immediately.
  */
+// 【中文】取得当前登录用户；会再查数据库，确认用户还存在且密码没被重置。
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
     const jar = await cookies();
@@ -110,6 +118,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 }
 
 /** Call at the top of every protected API handler. Returns a 401 response or null. */
+// 【中文】接口守卫：未登录返回 401。所有需要登录的 API 开头都要调用。
 export async function requireAuth(): Promise<NextResponse | null> {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -122,6 +131,7 @@ export function isOwner(user: { role: string } | null | undefined): boolean {
 }
 
 /** Call at the top of owner-only API handlers. Returns 401 / 403 response or null. */
+// 【中文】接口守卫：只有老板（OWNER）能通过，否则返回 403。
 export async function requireOwner(): Promise<NextResponse | null> {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -132,6 +142,7 @@ export async function requireOwner(): Promise<NextResponse | null> {
 }
 
 // ---------- Login brute-force protection (in-memory, per username + IP) ----------
+// 【中文】登录防暴力破解：同一用户名连续输错 5 次，锁定 15 分钟（只保存在内存，重启程序后清零）。
 const MAX_FAILS = 5;
 const LOCK_MS = 15 * 60 * 1000;
 const fails = new Map<string, { count: number; until: number }>();

@@ -27,8 +27,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username and password required" }, { status: 400 });
     }
 
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
-    const key = `${email}|${ip}`;
+    // Keyed by username only: client IP headers can be forged, so they are not trusted.
+    const key = email;
     const wait = loginLockedFor(key);
     if (wait > 0) {
       return NextResponse.json(
