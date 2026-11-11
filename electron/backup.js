@@ -60,6 +60,7 @@ function listBackups() {
   }
 }
 
+// 【中文】删除过旧的备份，只保留最近的几份。
 function prune(dir, keep) {
   try {
     const files = fs
@@ -74,6 +75,7 @@ function prune(dir, keep) {
 }
 
 /** Copy the database. force = ignore "unchanged since last backup" check. */
+// 【中文】执行一次备份（用 SQLite 一致性快照），并按设置只保留最近 N 份。
 function runBackup(reason, force) {
   if (!ctx) return { ok: false, error: "not ready" };
   const cfg = getConfig();
@@ -152,6 +154,7 @@ function snapshot() {
   return { config: cfg, status: getStatus(), files: listBackups(), autoDir: ctx.autoDir };
 }
 
+// 【中文】初始化自动备份：定时备份、退出时备份、响应设置页的备份/还原操作。
 function init(opts) {
   ctx = {
     ...opts,
@@ -246,6 +249,7 @@ function init(opts) {
 }
 
 /** Called when the app quits */
+// 【中文】程序退出前做最后一次备份。
 function onQuit() {
   if (!ctx) return;
   const cfg = getConfig();

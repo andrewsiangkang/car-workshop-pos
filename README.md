@@ -114,3 +114,14 @@ Accounts that already created work orders cannot be deleted (reset the password 
 4. 店里的程序下次启动时会提示「有新版本」，点「下载」后运行安装程序即可，资料不会丢失。
 
 注意：仓库必须是 **Public**，程序才读得到 Releases。
+
+## 演示版（带示范资料）
+GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后在该次运行页面底部 Artifacts 下载 `WorkshopPOS-DEMO-Setup`。
+演示版登录：`demo` / `demo12345`（老板），`staff` / `staff12345`（员工）。
+演示版不会检查更新，数据放在单独文件夹，可与正式版同时安装。正式版始终是空白数据。
+
+## 进货：供应商发票 / 供应商 / 付款凭证（仅老板）
+- **供应商发票**：侧边栏 → Supplier Invoices → New / Scan Invoice。拍照或选图，离线识别文字（识别用的文件在打包时放进 `public/ocr`，见 `scripts/copy-ocr.js`），核对后保存 → 商品自动入库（库存里有同名/同 SKU 就加数量并更新成本价，没有就新建并按关键字分类）。同一供应商同一发票号不能重复录入。
+- **供应商账户**：录入发票时自动建立；Suppliers 页可看联系方式、买过的商品和最近价格、低库存补货清单（可打印）。
+- **付款凭证**：在供应商发票页点 Pay 生成（支持分期）；也可在 Payment Vouchers 页开独立凭证（租金、电费等）。可打印。
+- 扫描识别只是“预填”，一定要核对每一行；识别不准可以手动改。

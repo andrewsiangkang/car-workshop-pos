@@ -14,16 +14,19 @@
 
 export type TaxScope = "ALL" | "LABOR";
 
+// 【中文】金额四舍五入到分（sen），避免 0.1+0.2 这类小数误差。
 export function money(n: number) {
   return Math.round((Number(n) || 0) * 100 + Number.EPSILON) / 100;
 }
 
+// 【中文】店铺是否已登记 SST：必须填了 SST 号码（不是 NA）且税率大于 0 才收税。
 export function sstActive(shop: { sstNumber?: string | null; sstRate?: number | null } | null | undefined) {
   const no = (shop?.sstNumber || "").trim().toUpperCase();
   return !!no && no !== "NA" && no !== "N/A" && (Number(shop?.sstRate) || 0) > 0;
 }
 
 /** Rate that applies for this shop right now (0 when not SST-registered). */
+// 【中文】当前实际生效的税率（未登记 SST 则为 0）。
 export function effectiveRate(shop: { sstNumber?: string | null; sstRate?: number | null } | null | undefined) {
   return sstActive(shop) ? Math.min(100, Math.max(0, Number(shop!.sstRate) || 0)) : 0;
 }
@@ -45,6 +48,7 @@ export type Totals = {
   lines: Array<{ discountShare: number; net: number; taxable: boolean; tax: number }>;
 };
 
+// 【中文】核心算账函数：先按各行金额比例分摊折扣，再逐行算税并四舍五入，税额 = 各行税额之和；报价预览、保存、打印、LHDN 电子发票都用它，所以数字一致。
 export function computeTotals(
   items: TaxLine[],
   discountIn: number,

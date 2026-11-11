@@ -15,6 +15,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 }
 
+// 【中文】找一个空闲端口来运行内部服务器。
 function getFreePort() {
   return new Promise((resolve, reject) => {
     const s = net.createServer();
@@ -45,6 +46,7 @@ function waitForServer(port, timeoutMs = 60000) {
   });
 }
 
+// 【中文】准备数据文件夹：数据放在用户目录，首次运行才复制空白模板数据库，升级或卸载程序都不会丢数据。
 function prepareData() {
   // 数据放在用户目录，升级/卸载程序不会丢失
   const dataDir = path.join(app.getPath("userData"), "data");
@@ -60,6 +62,7 @@ function prepareData() {
   return { dataDir, dbPath };
 }
 
+// 【中文】每台电脑首次运行时生成专属的登录签名密钥并保存。
 function getAuthSecret(dataDir) {
   // Random per-installation secret used to sign login cookies
   const f = path.join(dataDir, "auth-secret");
@@ -72,6 +75,7 @@ function getAuthSecret(dataDir) {
   return v;
 }
 
+// 【中文】启动内置的 Next.js 服务器，崩溃时自动重启；监听 0.0.0.0 让同一 Wi-Fi 的手机也能访问。
 async function startServer() {
   const { dataDir, dbPath } = prepareData();
   paths = { dataDir, dbPath };
@@ -124,6 +128,7 @@ const CURRENT_VERSION = require("../package.json").version;
 // Public GitHub repo whose latest Release is compared with this version. Set UPDATE_REPO="" to disable.
 const GITHUB_REPO = process.env.UPDATE_REPO !== undefined ? process.env.UPDATE_REPO : "andrewsiangkang/car-workshop-pos";
 
+// 【中文】比较版本号大小（如 0.1.10 大于 0.1.9）。
 function compareVersions(a, b) {
   const pa = String(a).replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
   const pb = String(b).replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -175,7 +180,12 @@ async function getLatestRelease() {
   }
 }
 
+// 【中文】检查更新：向 GitHub 查询最新发布的版本，有新版本就提示下载。
+// 【中文】演示版（打包时 extraMetadata.workshopDemo=true）：不检查更新，标题标明“演示版”。
+const IS_DEMO = (() => { try { return !!require("../package.json").workshopDemo; } catch { return false; } })();
+
 async function checkForUpdates() {
+  if (IS_DEMO) return;
   if (!app.isPackaged) return; // only in the installed app
   const r = await getLatestRelease();
   if (r.error || !r.hasUpdate) return;
@@ -219,6 +229,7 @@ function getLocalIP() {
   return "127.0.0.1";
 }
 
+// 【中文】主流程：准备数据 → 启动服务器 → 打开窗口 → 启动自动备份 → 检查更新。
 async function createWindow() {
   try {
     const port = await startServer();
@@ -268,12 +279,12 @@ async function createWindow() {
     });
     const lanIP = getLocalIP();
     const mobileUrl = "http://" + lanIP + ":" + port;
-    win.setTitle("修车店 POS  ·  手机访问: " + mobileUrl);
+    win.setTitle((IS_DEMO ? "【演示版】" : "") + "修车店 POS  ·  手机访问: " + mobileUrl);
     // Show mobile access info once
     // Non-blocking info in title only; avoid modal dialog that can steal focus
     setTimeout(() => {
       if (win && !win.isDestroyed()) {
-        win.setTitle("修车店 POS  ·  手机: " + mobileUrl);
+        win.setTitle((IS_DEMO ? "【演示版】" : "") + "修车店 POS  ·  手机: " + mobileUrl);
       }
     }, 500);
     // Warn if the automatic database upgrade failed (the original data is untouched).

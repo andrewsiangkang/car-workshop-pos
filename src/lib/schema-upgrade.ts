@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
  * To add something in future: add it to schema.prisma AND here. For new tables use
  * the exact DDL from:  npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script
  */
+// 【中文】新版本新增的字段清单。以后给 schema.prisma 加字段，必须同时加到这里，旧店的数据库才会自动升级。
 const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   // v0.2 — SST
   { table: "ShopProfile", column: "sstRate", ddl: "REAL NOT NULL DEFAULT 0" },
@@ -26,6 +27,7 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "WorkOrder", column: "consolidatedId", ddl: "TEXT" },
 ];
 
+// 【中文】新版本新增的表（含索引）。
 const TABLES: Array<{ table: string; ddl: string[] }> = [
   {
     table: "CreditNote",
@@ -71,6 +73,84 @@ const TABLES: Array<{ table: string; ddl: string[] }> = [
       `CREATE UNIQUE INDEX "ConsolidatedInvoice_month_key" ON "ConsolidatedInvoice"("month")`,
     ],
   },
+  {
+    table: "Supplier",
+    ddl: [
+      `CREATE TABLE "Supplier" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "phone" TEXT,
+    "address" TEXT,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`,
+      `CREATE UNIQUE INDEX "Supplier_name_key" ON "Supplier"("name")`,
+    ],
+  },
+  {
+    table: "SupplierInvoice",
+    ddl: [
+      `CREATE TABLE "SupplierInvoice" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "internalNo" TEXT NOT NULL,
+    "invoiceNo" TEXT NOT NULL,
+    "invoiceDate" DATETIME NOT NULL,
+    "dueDate" DATETIME,
+    "supplierId" TEXT NOT NULL,
+    "subtotal" REAL NOT NULL,
+    "taxAmount" REAL NOT NULL DEFAULT 0,
+    "totalAmount" REAL NOT NULL,
+    "paidAmount" REAL NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'UNPAID',
+    "notes" TEXT,
+    "imageUrl" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdById" TEXT,
+    CONSTRAINT "SupplierInvoice_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "Supplier" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+)`,
+      `CREATE UNIQUE INDEX "SupplierInvoice_internalNo_key" ON "SupplierInvoice"("internalNo")`,
+      `CREATE UNIQUE INDEX "SupplierInvoice_supplierId_invoiceNo_key" ON "SupplierInvoice"("supplierId", "invoiceNo")`,
+    ],
+  },
+  {
+    table: "SupplierInvoiceItem",
+    ddl: [
+      `CREATE TABLE "SupplierInvoiceItem" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "description" TEXT NOT NULL,
+    "sku" TEXT,
+    "category" TEXT,
+    "quantity" REAL NOT NULL,
+    "unitCost" REAL NOT NULL,
+    "total" REAL NOT NULL,
+    "invoiceId" TEXT NOT NULL,
+    "inventoryItemId" TEXT,
+    CONSTRAINT "SupplierInvoiceItem_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "SupplierInvoice" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "SupplierInvoiceItem_inventoryItemId_fkey" FOREIGN KEY ("inventoryItemId") REFERENCES "InventoryItem" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+)`,
+    ],
+  },
+  {
+    table: "PaymentVoucher",
+    ddl: [
+      `CREATE TABLE "PaymentVoucher" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "number" TEXT NOT NULL,
+    "payee" TEXT NOT NULL,
+    "purpose" TEXT,
+    "amount" REAL NOT NULL,
+    "method" TEXT NOT NULL DEFAULT 'CASH',
+    "reference" TEXT,
+    "notes" TEXT,
+    "paidAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdById" TEXT,
+    "supplierInvoiceId" TEXT,
+    CONSTRAINT "PaymentVoucher_supplierInvoiceId_fkey" FOREIGN KEY ("supplierInvoiceId") REFERENCES "SupplierInvoice" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+)`,
+      `CREATE UNIQUE INDEX "PaymentVoucher_number_key" ON "PaymentVoucher"("number")`,
+    ],
+  },
 ];
 
 let done: Promise<void> | null = null;
@@ -84,6 +164,7 @@ function statusFile() {
   return path.join(dataDir(), "upgrade-error.txt");
 }
 
+// 【中文】启动时自动升级旧数据库：①先找出缺什么 ②先备份 ③在一个事务里一次改完（全成功或全不改）。只增不删，不会动已有数据。
 export function ensureSchema() {
   if (!done) {
     done = (async () => {

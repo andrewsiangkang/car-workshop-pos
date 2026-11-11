@@ -15,6 +15,7 @@ class UserError extends Error {}
  * An issued invoice is never edited. A credit note reduces what the customer owes;
  * if they already paid, the refund is recorded as a negative payment.
  */
+// 【中文】开退款单（仅老板）：已开出的发票不能改，只能开退款单减少应收；如果顾客已付款，退的钱记为负数付款。全部在一个事务里完成，并检查：不能超过可退金额、不能退超过已付金额。
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireOwner();
   if (denied) return denied;

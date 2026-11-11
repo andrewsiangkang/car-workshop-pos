@@ -45,5 +45,21 @@ export async function nextCreditNoteNumber(db: Db = prisma) {
   return `${base}${String(max + 1).padStart(3, "0")}`;
 }
 
+/** Internal supplier-invoice number, e.g. SI20261111001 (call inside the same transaction). */
+export async function nextSupplierInvoiceNumber(db: Db = prisma) {
+  const base = `SI${localDatePart()}`;
+  const rows = await db.supplierInvoice.findMany({ where: { internalNo: { startsWith: base } }, select: { internalNo: true } });
+  const max = rows.reduce((m, r) => Math.max(m, parseInt(r.internalNo.slice(base.length), 10) || 0), 0);
+  return `${base}${String(max + 1).padStart(3, "0")}`;
+}
+
+/** Payment voucher number, e.g. PV20261111001 (call inside the same transaction). */
+export async function nextVoucherNumber(db: Db = prisma) {
+  const base = `PV${localDatePart()}`;
+  const rows = await db.paymentVoucher.findMany({ where: { number: { startsWith: base } }, select: { number: true } });
+  const max = rows.reduce((m, r) => Math.max(m, parseInt(r.number.slice(base.length), 10) || 0), 0);
+  return `${base}${String(max + 1).padStart(3, "0")}`;
+}
+
 /** Round to sen (2 decimal places) to avoid floating-point drift such as 0.1 + 0.2. */
 export { money } from "@/lib/tax";
