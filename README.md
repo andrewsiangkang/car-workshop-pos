@@ -71,7 +71,7 @@ Database starts completely empty.
 - **Inventory management** — spare parts stock, stock in/out, low stock alerts
 - **Login protection** — set username & password on first run
 - Mobile-friendly layout (works on phone browser)
-- Reports and basic dashboard
+- Reports and basic dashboard\n- **Customer service reminders** — track next service date / mileage, overdue and upcoming vehicles, mark service completed to calculate the next interval, and open WhatsApp with a prefilled reminder message.
 
 ## Boss vs Staff accounts
 
@@ -180,7 +180,7 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
 
 
 
-**Current source version: v0.3.12**
+**Current source version: v0.3.16**
 
 
 ## Latest build fix

@@ -68,6 +68,12 @@ model Vehicle {
   vin         String?
   mileage     Int?
   notes       String?
+  lastServiceDate      DateTime?
+  lastServiceMileage   Int?
+  nextServiceDate      DateTime?
+  nextServiceMileage   Int?
+  serviceIntervalKm    Int      @default(5000)
+  serviceIntervalMonths Int    @default(6)
   customerId  String
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

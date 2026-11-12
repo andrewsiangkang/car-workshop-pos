@@ -159,6 +159,9 @@ export function CounterPanel({
   const liveVariance =
     summary && countedNum != null && Number.isFinite(countedNum) ? varianceOf(countedNum, summary.expectedCash) : null;
   const otherMethods = summary ? summary.methods.filter((m) => m.method !== "CASH") : [];
+  const totalCollected = summary ? summary.methods.reduce((total, method) => total + method.net, 0) : 0;
+  const nonCashCollected = otherMethods.reduce((total, method) => total + method.net, 0);
+  const totalBankSettlement = deposit != null ? deposit + nonCashCollected : null;
 
   return (
     <div className="space-y-6">
@@ -241,6 +244,22 @@ export function CounterPanel({
           </div>
 
           {summary && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-blue-950">Total Daily Collections</h2>
+                  <p className="mt-1 text-xs text-blue-800">All payment methods combined — cash, card, bank transfer, DuitNow QR and e-wallet.</p>
+                </div>
+                <div className="text-right text-xl font-bold text-blue-950">{formatCurrency(totalCollected)}</div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-blue-200 pt-3 text-sm">
+                <div><div className="text-xs text-blue-700">Cash sales</div><div className="font-semibold text-blue-950">{formatCurrency(summary.cashSales - summary.cashRefunds)}</div></div>
+                <div><div className="text-xs text-blue-700">Electronic / non-cash</div><div className="font-semibold text-blue-950">{formatCurrency(nonCashCollected)}</div></div>
+              </div>
+            </div>
+          )}
+
+          {summary && (
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Cash in Drawer (so far)</h2>
               <div className="space-y-1.5 text-sm">
@@ -271,7 +290,10 @@ export function CounterPanel({
               </div>
               {otherMethods.length > 0 && (
                 <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
-                  <div className="mb-1 font-medium text-slate-700">Other Payments (not in the drawer)</div>
+                  <div className="mb-1 flex items-center justify-between font-semibold text-slate-800">
+                    <span>Electronic Payments (included in daily total)</span>
+                    <span>{formatCurrency(nonCashCollected)}</span>
+                  </div>
                   {otherMethods.map((m) => (
                     <div key={m.method} className="flex justify-between text-slate-600">
                       <span>
@@ -281,7 +303,7 @@ export function CounterPanel({
                     </div>
                   ))}
                   <div className="mt-1 text-xs text-slate-400">
-                    Check these against the card terminal, Touch &apos;n Go and bank records. They are not part of the cash count.
+                    These payments are included in total daily collections. They are already received through the card / QR / bank channels, so do not count them as physical drawer cash.
                   </div>
                 </div>
               )}
@@ -342,12 +364,19 @@ export function CounterPanel({
               </div>
               {keepTooMuch && <div className="mt-2 text-sm text-red-600">The float to keep cannot be more than the cash counted.</div>}
               {deposit != null && (
-                <div className="mt-3 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3 text-base font-bold text-blue-800">
-                  <span>Cash to Bank In</span>
-                  <span>{formatCurrency(deposit)}</span>
-                </div>
+                <>
+                  <div className="mt-3 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+                    <span>Cash to Bank In (cash counted − drawer float)</span>
+                    <span>{formatCurrency(deposit)}</span>
+                  </div>
+                  <div className="mt-2 space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Cash to deposit</span><span>{formatCurrency(deposit)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Electronic payments already in bank / merchant accounts</span><span>{formatCurrency(nonCashCollected)}</span></div>
+                    <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900"><span>Total daily amount in bank / payment channels</span><span>{formatCurrency(totalBankSettlement ?? 0)}</span></div>
+                  </div>
+                </>
               )}
-              <div className="mt-1 text-xs text-slate-400">Costs (parts, supplier payments, expenses) are not deducted here.</div>
+              <div className="mt-1 text-xs text-slate-400">The cash deposit is physical cash only. Electronic payments are already credited to their respective bank / merchant accounts. Operating costs are not deducted here.</div>
             </div>
             )}
 

@@ -2,6 +2,196 @@
 // 以后新增界面文字，在这里加一行即可；没有翻译的文字会保持英文。
 export const ROWS: Array<[string, string, string]> = [
  [
+  "Service Reminders",
+  "保养提醒",
+  "Peringatan Servis"
+ ],
+ [
+  "Track upcoming vehicle maintenance and contact customers before their next service is due.",
+  "追踪车辆即将到期的保养，并在保养到期前联系顾客。",
+  "Jejak penyelenggaraan kenderaan dan hubungi pelanggan sebelum servis seterusnya tiba."
+ ],
+  [
+  "Overdue",
+  "已逾期",
+  "已逾期"
+ ],
+ [
+  "Upcoming",
+  "即将到期",
+  "Akan Tiba"
+ ],
+ [
+  "Scheduled",
+  "已安排",
+  "Dijadualkan"
+ ],
+ [
+  "Recently serviced",
+  "最近已保养",
+  "Baru Diservis"
+ ],
+ [
+  "Not set",
+  "未设置",
+  "Belum Ditetapkan"
+ ],
+ [
+  "All vehicles",
+  "所有车辆",
+  "Semua Kenderaan"
+ ],
+ [
+  "Search plate, customer or phone",
+  "搜索车牌、顾客或电话",
+  "Cari nombor plat, pelanggan atau telefon"
+ ],
+ [
+  "No vehicles match this filter. Add vehicles through Work Orders first.",
+  "没有符合条件的车辆。请先通过维修工单添加车辆。",
+  "Tiada kenderaan sepadan. Tambah kenderaan melalui Arahan Kerja dahulu."
+ ],
+ [
+  "Set reminder",
+  "设置提醒",
+  "Tetapkan Peringatan"
+ ],
+ [
+  "Service done",
+  "已完成保养",
+  "Servis Selesai"
+ ],
+ [
+  "Current mileage",
+  "当前里程",
+  "Bacaan Odometer Semasa"
+ ],
+ [
+  "Last service",
+  "上次保养",
+  "Servis Terakhir"
+ ],
+ [
+  "Next service date",
+  "下次保养日期",
+  "Tarikh Servis Seterusnya"
+ ],
+ [
+  "Next service mileage",
+  "下次保养里程",
+  "Bacaan Odometer Servis Seterusnya"
+ ],
+ [
+  "WhatsApp customer",
+  "WhatsApp 联系顾客",
+  "WhatsApp Pelanggan"
+ ],
+ [
+  "No valid phone for WhatsApp",
+  "没有可用的 WhatsApp 电话号码",
+  "Tiada nombor telefon WhatsApp yang sah"
+ ],
+ [
+  "Set service reminder",
+  "设置保养提醒",
+  "Tetapkan Peringatan Servis"
+ ],
+ [
+  "Last service date",
+  "上次保养日期",
+  "Tarikh Servis Terakhir"
+ ],
+ [
+  "Last service mileage (km)",
+  "上次保养里程 (km)",
+  "Bacaan Odometer Servis Terakhir (km)"
+ ],
+ [
+  "Repeat every (km)",
+  "每隔多少公里",
+  "Ulang Setiap (km)"
+ ],
+ [
+  "Repeat every (months)",
+  "每隔多少个月",
+  "Ulang Setiap (bulan)"
+ ],
+ [
+  "Set at least one next-service trigger: a date, a mileage, or both. The reminder is stored locally in this workshop database.",
+  "至少设置一个下次保养条件：日期、里程，或两者都设置。提醒保存在本地维修店数据库。",
+  "Tetapkan sekurang-kurangnya satu pencetus servis: tarikh, jarak perjalanan atau kedua-duanya. Peringatan disimpan dalam pangkalan data bengkel tempatan."
+ ],
+ [
+  "Save reminder",
+  "保存提醒",
+  "Simpan Peringatan"
+ ],
+ [
+  "Record completed service",
+  "记录已完成的保养",
+  "Rekod Servis Selesai"
+ ],
+ [
+  "Current mileage (km) *",
+  "当前里程 (km) *",
+  "Bacaan Odometer Semasa (km) *"
+ ],
+ [
+  "Confirm service done",
+  "确认保养完成",
+  "Sahkan Servis Selesai"
+ ],
+ [
+  "Total Daily Collections",
+  "每日总收款",
+  "Jumlah Kutipan Harian"
+ ],
+ [
+  "All payment methods combined — cash, card, bank transfer, DuitNow QR and e-wallet.",
+  "所有付款方式合计：现金、银行卡、银行转账、DuitNow QR 和电子钱包。",
+  "Jumlah semua kaedah pembayaran — tunai, kad, pindahan bank, DuitNow QR dan e-dompet."
+ ],
+ [
+  "Cash sales",
+  "现金销售",
+  "Jualan Tunai"
+ ],
+ [
+  "Electronic / non-cash",
+  "电子 / 非现金付款",
+  "Pembayaran Elektronik / Bukan Tunai"
+ ],
+ [
+  "Electronic Payments (included in daily total)",
+  "电子付款（已计入每日总额）",
+  "Pembayaran Elektronik (termasuk dalam jumlah harian)"
+ ],
+ [
+  "Total daily amount in bank / payment channels",
+  "银行 / 支付渠道每日结算总额",
+  "Jumlah penyelesaian harian bank / saluran pembayaran"
+ ],
+ [
+  "Cash to deposit",
+  "现金存款",
+  "Tunai untuk didepositkan"
+ ],
+ [
+  "Electronic payments already in bank / merchant accounts",
+  "已进入银行 / 商户账户的电子付款",
+  "Pembayaran elektronik yang telah dikreditkan ke akaun bank / pedagang"
+ ],
+ [
+  "Cash to Bank In (cash counted − drawer float)",
+  "现金存入银行（清点现金 − 收银柜本钱）",
+  "Tunai ke Bank (tunai dikira − wang apungan laci)"
+ ],
+ [
+  "Total bank / payment-channel settlement",
+  "银行 / 支付渠道结算总额",
+  "Jumlah penyelesaian bank / saluran pembayaran"
+ ],
+[
   "Customers",
   "客户",
   "Pelanggan"

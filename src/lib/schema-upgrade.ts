@@ -63,6 +63,13 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "WorkOrder", column: "submissionUid", ddl: "TEXT" },
   // v0.3.11 — owner-editable document print templates
   { table: "ShopProfile", column: "documentSettings", ddl: "TEXT" },
+  // v0.3.16 — customer service reminders (safe additive upgrade)
+  { table: "Vehicle", column: "lastServiceDate", ddl: "DATETIME" },
+  { table: "Vehicle", column: "lastServiceMileage", ddl: "INTEGER" },
+  { table: "Vehicle", column: "nextServiceDate", ddl: "DATETIME" },
+  { table: "Vehicle", column: "nextServiceMileage", ddl: "INTEGER" },
+  { table: "Vehicle", column: "serviceIntervalKm", ddl: "INTEGER NOT NULL DEFAULT 5000" },
+  { table: "Vehicle", column: "serviceIntervalMonths", ddl: "INTEGER NOT NULL DEFAULT 6" },
 ];
 
 // 【中文】新版本新增的表（含索引）。

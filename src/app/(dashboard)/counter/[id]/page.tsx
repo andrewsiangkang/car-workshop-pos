@@ -63,6 +63,8 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
   const floatKept = shift.floatKept ?? null;
   const deposit = shift.depositAmount ?? null;
   const totalCollected = s.methods.reduce((t, m) => t + m.net, 0);
+  const nonCashCollected = otherMethods.reduce((t, m) => t + m.net, 0);
+  const totalBankSettlement = deposit != null ? deposit + nonCashCollected : null;
 
   // Boss-only profit estimate: parts cost of the jobs paid in this session.
   let partsCost = 0;
@@ -148,7 +150,14 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
               <span>Cash to Bank In (cash only)</span>
               <span>{closed && deposit != null ? formatCurrency(deposit) : "Calculated at cash closing"}</span>
             </div>
-            <p className="mt-1 text-xs text-blue-800">Cash counted minus float kept in the drawer. Do not add CARD, TNG or TRANSFER here because those are already received directly into their respective accounts.</p>
+            <p className="mt-1 text-xs text-blue-800">Cash counted minus float kept in the drawer. Do not physically deposit card, DuitNow QR or transfer amounts again; they are already in their respective bank / merchant accounts.</p>
+            {closed && deposit != null && (
+              <div className="mt-3 space-y-1 border-t border-blue-200 pt-2 text-sm text-blue-950">
+                <div className="flex justify-between"><span>Cash deposit</span><span>{formatCurrency(deposit)}</span></div>
+                <div className="flex justify-between"><span>Electronic payments already credited</span><span>{formatCurrency(nonCashCollected)}</span></div>
+                <div className="flex justify-between border-t border-blue-200 pt-2 font-bold"><span>Total bank / payment-channel settlement</span><span>{formatCurrency(totalBankSettlement ?? 0)}</span></div>
+              </div>
+            )}
           </div>
         </div>
 
