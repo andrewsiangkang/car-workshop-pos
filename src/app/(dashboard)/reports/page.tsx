@@ -96,6 +96,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-4 flex items-center gap-2"><Package className="h-5 w-5 text-blue-600"/><h2 className="font-semibold">Top Selling Work Items</h2></div>{topItems.length ? <div className="space-y-3">{topItems.map(([name,v])=><div key={name} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2 text-sm"><span className="truncate">{name}<span className="ml-2 text-xs text-slate-400">× {v.quantity}</span></span><b>{money(v.sales)}</b></div>)}</div> : <p className="text-sm text-slate-400">No item sales in this period.</p>}</section>
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-4 flex items-center gap-2"><Users className="h-5 w-5 text-blue-600"/><h2 className="font-semibold">Technician Performance (by assigned paid jobs)</h2></div>{staff.length ? <div className="space-y-3">{staff.map(([name,v])=><div key={name} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2 text-sm"><span>{name}<span className="ml-2 text-xs text-slate-400">{v.jobs} jobs</span></span><b>{money(v.revenue)}</b></div>)}</div> : <p className="text-sm text-slate-400">No assigned paid jobs in this period.</p>}</section>
     </div>
+    <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-1 font-semibold text-slate-900">Export Data (CSV)</h2>
+      <p className="mb-4 text-sm text-slate-500">Download a spreadsheet file that opens in Excel. Invoices and expenses follow the period selected above. Every download is recorded in the audit log.</p>
+      <div className="flex flex-wrap gap-2">{[
+        ["invoices", `Invoices (${RANGES[range]})`, `?range=${range}`],
+        ["expenses", `Expenses (${RANGES[range]})`, `?range=${range}`],
+        ["customers", "Customers", ""],
+        ["vehicles", "Vehicles", ""],
+        ["inventory", "Inventory", ""],
+      ].map(([kind, label, qs]) => <a key={kind} href={`/api/export/${kind}${qs}`} download className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">{label}</a>)}</div>
+    </section>
     <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"><strong>Important:</strong> Estimated Net Profit = Collections − tax collected − recorded parts cost − recorded operating expenses. It excludes unrecorded wages, rent, utilities, depreciation and other costs. Technician figures use assigned paid work orders, not time-clock productivity.</div>
   </div>;
 }

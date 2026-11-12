@@ -2555,4 +2555,12 @@ export const ROWS: Array<[string, string, string]> = [
  ["Use a strong password for the boss and every staff account. Remove staff accounts of people who left.","老板和每个员工账号都要用强密码。离职员工的账号要删除。","Guna kata laluan yang kuat untuk bos dan setiap akaun staf. Padam akaun staf yang telah berhenti."],
  ["The POS holds sales, costs and customer details. Only sign in to Tailscale on devices you trust, and turn on a screen lock on your phone.","POS 里有营业额、成本和客户资料。只在你信任的设备上登录 Tailscale，手机要设置锁屏。","POS menyimpan jualan, kos dan maklumat pelanggan. Log masuk Tailscale hanya pada peranti yang dipercayai, dan aktifkan kunci skrin telefon."],
  ["You are logged out automatically after 5 minutes without activity.","5 分钟没有操作会自动登出。","Anda dilog keluar secara automatik selepas 5 minit tanpa aktiviti."],
+  ["Export Data (CSV)","导出数据（CSV）","Eksport Data (CSV)"],
+  ["Download a spreadsheet file that opens in Excel. Invoices and expenses follow the period selected above. Every download is recorded in the audit log.","下载可用 Excel 打开的表格文件。发票和支出按上面选择的时间段导出。每次下载都会记录在审计日志里。","Muat turun fail hamparan yang boleh dibuka dalam Excel. Invois dan perbelanjaan mengikut tempoh yang dipilih di atas. Setiap muat turun direkodkan dalam log audit."],
+  ["Invoices (This Month)","发票（本月）","Invois (Bulan Ini)"],
+  ["Invoices (This Quarter)","发票（本季度）","Invois (Suku Ini)"],
+  ["Invoices (This Year)","发票（本年）","Invois (Tahun Ini)"],
+  ["Expenses (This Month)","支出（本月）","Perbelanjaan (Bulan Ini)"],
+  ["Expenses (This Quarter)","支出（本季度）","Perbelanjaan (Suku Ini)"],
+  ["Expenses (This Year)","支出（本年）","Perbelanjaan (Tahun Ini)"],
 ];
