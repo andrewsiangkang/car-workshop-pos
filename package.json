@@ -1,6 +1,6 @@
 {
   "name": "car-workshop-pos",
-  "version": "0.3.8",
+  "version": "0.3.10",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -52,6 +52,6 @@
     "typescript": "^5"
   },
   "main": "electron/main.js",
-  "description": "\u4fee\u8f66\u5e97 POS \u7cfb\u7edf",
+  "description": "修车店 POS 系统",
   "author": "Workshop"
 }

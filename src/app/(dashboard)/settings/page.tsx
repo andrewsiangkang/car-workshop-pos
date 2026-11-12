@@ -7,6 +7,7 @@ import { AutoBackupPanel } from "@/components/settings/AutoBackupPanel";
 import { StaffPanel } from "@/components/settings/StaffPanel";
 import { ConnectPanel } from "@/components/settings/ConnectPanel";
 import { MY_STATES } from "@/lib/my-states";
+import { AUTOMOTIVE_MSIC_CODES } from "@/data/msic-codes";
 import {
   Save,
   Building2,
@@ -16,6 +17,8 @@ import {
   HardDrive,
   Users,
   Smartphone,
+  Search,
+  Check,
 } from "lucide-react";
 
 type ShopForm = {
@@ -76,6 +79,11 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"basic" | "tax" | "bank" | "backup" | "staff" | "connect">("basic");
   const [backupMsg, setBackupMsg] = useState("");
   const [hasSecret, setHasSecret] = useState(false);
+  const [msicSearch, setMsicSearch] = useState("");
+  const [showMsicResults, setShowMsicResults] = useState(false);
+  const filteredMsicCodes = AUTOMOTIVE_MSIC_CODES.filter((item) =>
+    `${item.code} ${item.description} ${item.keywords}`.toLowerCase().includes(msicSearch.trim().toLowerCase())
+  ).slice(0, 10);
 
   useEffect(() => {
     fetch("/api/shop")
@@ -83,6 +91,7 @@ export default function SettingsPage() {
       .then((data) => {
         setHasSecret(!!data.hasMyInvoisSecret);
         if (!data.error) {
+          if (data.msicCode) setMsicSearch(`${data.msicCode}${data.msicDesc ? ` — ${data.msicDesc}` : ""}`);
           setForm({
             name: data.name || "",
             nameMs: data.nameMs || "",
@@ -413,20 +422,65 @@ export default function SettingsPage() {
               Prices are entered before tax. New quotes use this rate, and the rate is fixed when the invoice is generated.
               Confirm the correct rate and what it applies to with JKDM or your tax agent.
             </p>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                MSIC Code
-              </label>
-              <input
-                type="text"
-                value={form.msicCode}
-                onChange={(e) => update("msicCode", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Business Activity Description</label>
-              <input value={form.msicDesc} onChange={(e) => update("msicDesc", e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" placeholder="e.g. Maintenance and repair of motor vehicles" />
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <div className="mb-1 text-sm font-semibold text-slate-800">Find MSIC business activity code</div>
+              <p className="mb-3 text-xs leading-5 text-slate-600">
+                Search the built-in automotive activity list by code or keyword (English / BM). Select a result to fill the code and description automatically. No need to open the LHDN website for these common workshop activities.
+              </p>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="search"
+                  value={msicSearch}
+                  onFocus={() => setShowMsicResults(true)}
+                  onChange={(e) => { setMsicSearch(e.target.value); setShowMsicResults(true); }}
+                  placeholder="Search: 45201, car repair, bengkel, car wash..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+                  aria-label="Search MSIC code and business activity"
+                />
+              </div>
+              {showMsicResults && (
+                <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                  {filteredMsicCodes.length ? filteredMsicCodes.map((item) => (
+                    <button
+                      key={item.code}
+                      type="button"
+                      onClick={() => {
+                        update("msicCode", item.code);
+                        update("msicDesc", item.description);
+                        setMsicSearch(`${item.code} — ${item.description}`);
+                        setShowMsicResults(false);
+                      }}
+                      className="flex w-full items-start gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-blue-50"
+                    >
+                      <span className="rounded bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-800">{item.code}</span>
+                      <span className="flex-1 text-xs leading-5 text-slate-700">{item.description}</span>
+                      {form.msicCode === item.code && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+                    </button>
+                  )) : <p className="px-3 py-4 text-xs text-slate-500">No matching automotive activity. You can still enter a code manually below.</p>}
+                </div>
+              )}
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">Selected MSIC Code (5 digits)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={form.msicCode}
+                    onChange={(e) => update("msicCode", e.target.value.replace(/\D/g, "").slice(0, 5))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                    placeholder="e.g. 45201"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">Business Activity Description</label>
+                  <input value={form.msicDesc} onChange={(e) => update("msicDesc", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm" placeholder="Maintenance and repair of motor vehicles" />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                This is a quick list of common motor-vehicle activities, not the complete MSIC directory. Confirm that the selected activity matches the business registered with SSM / LHDN. Official reference: <a className="underline" href="https://sdk.myinvois.hasil.gov.my/codes/msic-codes/" target="_blank" rel="noreferrer">MyInvois MSIC codes</a>.
+              </p>
             </div>
             <hr className="my-4" />
             <h4 className="text-sm font-semibold text-slate-800">MyInvois API Credentials</h4>

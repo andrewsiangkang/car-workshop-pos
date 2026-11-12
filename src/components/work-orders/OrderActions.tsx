@@ -33,6 +33,7 @@ export function OrderActions({
   const [received, setReceived] = useState("");
   const [receivedTouched, setReceivedTouched] = useState(false);
   const [notice, setNotice] = useState<{ change: number } | null>(null);
+  const [stockWarnings, setStockWarnings] = useState<string[]>([]);
 
   // After a part-payment the balance changes: refill the amount with what is still owed.
   useEffect(() => {
@@ -53,6 +54,11 @@ export function OrderActions({
       const data = await res.json();
       if (!res.ok) setError(data.error || "Operation failed");
       else {
+        if (payload.action === "generate_invoice") {
+          setStockWarnings(Array.isArray(data.stockWarnings)
+            ? data.stockWarnings.filter((warning: unknown): warning is string => typeof warning === "string")
+            : []);
+        }
         ok = true;
         router.refresh();
       }

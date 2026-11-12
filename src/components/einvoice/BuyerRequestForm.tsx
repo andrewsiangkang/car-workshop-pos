@@ -20,6 +20,11 @@ const T: Record<string, Record<Lang, string>> = {
     zh: "个人以 IG 开头，公司以 C 开头。可在 MyTax 查询。",
     ms: "Individu bermula dengan IG, syarikat dengan C. Semak di MyTax.",
   },
+  msicNotRequired: {
+    en: "You do not need to find or enter an MSIC code for this buyer e-Invoice request.",
+    zh: "申请这张顾客电子发票不需要查询或填写 MSIC 行业代码。",
+    ms: "Anda tidak perlu mencari atau mengisi kod MSIC untuk permintaan e-Invois pembeli ini.",
+  },
   idType: { en: "ID type", zh: "证件类型", ms: "Jenis ID" },
   NRIC: { en: "NRIC (IC)", zh: "身份证 (IC)", ms: "NRIC (IC)" },
   PASSPORT: { en: "Passport", zh: "护照", ms: "Pasport" },
@@ -196,6 +201,7 @@ export function BuyerRequestForm(p: Props) {
       <form onSubmit={send} className="space-y-3.5" noValidate>
         {field("name", t("name"), { auto: "name" })}
         {field("tin", t("tin"), { help: t("tinHelp") })}
+        <p className="-mt-1 text-xs text-emerald-700">{t("msicNotRequired")}</p>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">{t("idType")}</label>
           <select value={f.idType} onChange={set("idType")} className={inputCls(!!bad.idType)}>
