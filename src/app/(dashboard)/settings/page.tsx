@@ -443,6 +443,17 @@ export default function SettingsPage() {
               <input type="checkbox" checked={form.myInvoisSandbox} onChange={(e) => update("myInvoisSandbox", e.target.checked)} />
               Use Sandbox (preprod) environment
             </label>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950">
+              <div className="font-semibold text-amber-900">Digital signature (important)</div>
+              <p className="mt-1 leading-relaxed">
+                This version submits unsigned JSON documents (hash only). <strong>Production</strong> MyInvois often
+                requires a Malaysian digital certificate (XAdES). Prefer <strong>Sandbox</strong> for testing.
+                Going live without external signing may result in LHDN rejecting submissions.
+              </p>
+              <p className="mt-1 leading-relaxed text-amber-900/90">
+                本版本仅提交未签名的 JSON（仅哈希）。正式环境通常需要数字证书签名；请优先用沙盒联调。未签名直接上正式环境可能被 LHDN 拒绝。
+              </p>
+            </div>
           </div>
         )}
 

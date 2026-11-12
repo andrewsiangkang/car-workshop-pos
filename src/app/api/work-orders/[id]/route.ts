@@ -58,6 +58,16 @@ export async function PATCH(
       }
       // Number is allocated and saved in one transaction, re-checking that no other
       // click already issued one (invoice numbers must be unique for LHDN / SST).
+      // Stock shortfalls recorded when parts were taken for this job (notes contain "short").
+      const shortMoves = await prisma.stockMovement.findMany({
+        where: { workOrderId: id, type: "OUT", notes: { contains: "short" } },
+        include: { inventoryItem: { select: { name: true, sku: true } } },
+      });
+      const stockWarnings = shortMoves.map((m) => {
+        const label = m.inventoryItem?.name || m.inventoryItemId;
+        return `${label}: ${m.notes || "stock short"}`;
+      });
+
       const updated = await prisma.$transaction(async (tx) => {
         const fresh = await tx.workOrder.findUnique({ where: { id }, select: { invoiceNumber: true } });
         if (fresh?.invoiceNumber) return tx.workOrder.findUnique({ where: { id }, include });
@@ -81,7 +91,12 @@ export async function PATCH(
           include,
         });
       });
-      return NextResponse.json(updated ? redactOrder(updated, owner) : updated);
+      const body = updated ? redactOrder(updated, owner) : updated;
+      return NextResponse.json(
+        body && typeof body === "object"
+          ? { ...body, stockWarnings: stockWarnings.length ? stockWarnings : undefined }
+          : body
+      );
     }
 
     if (action === "record_payment") {

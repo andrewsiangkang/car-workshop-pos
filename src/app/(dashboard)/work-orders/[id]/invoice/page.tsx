@@ -67,6 +67,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             initialStatus={data.eInvoiceStatus}
             buyer={buyer}
           />
+          {data.buyerRequestUrl && (
+            <div className="no-print mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+              <div className="font-semibold">Customer e-Invoice request QR URL</div>
+              <p className="mt-1 text-xs text-blue-900/80">
+                Phone must be on the same shop Wi-Fi (or the address you set in WORKSHOP_PUBLIC_URL). Confirm this is not localhost before the customer scans the printed QR.
+              </p>
+              <code className="mt-2 block break-all rounded bg-white/80 px-2 py-1 text-xs text-slate-800">
+                {data.buyerRequestUrl}
+              </code>
+            </div>
+          )}
           <DocumentLayout data={data} />
         </>
       ) : (

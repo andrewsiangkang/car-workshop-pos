@@ -129,7 +129,7 @@ export function SubmitButtons({
       });
       const d = await res.json();
       if (!res.ok) {
-        setMsg((d.error || "Failed") + (d.detail ? ": " + JSON.stringify(d.detail).slice(0, 300) : ""));
+        setMsg(d.error || "Failed");
       } else {
         const newUid = d.submissionUID || "";
         const newId = d.id || recId;

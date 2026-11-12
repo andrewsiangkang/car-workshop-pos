@@ -91,6 +91,17 @@ export function OrderActions({
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Progress & Payment</h3>
       {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {stockWarnings.length > 0 && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="font-semibold">库存不足 / Stock short while completing</div>
+          <ul className="mt-1 list-disc pl-5 text-xs">
+            {stockWarnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+          <div className="mt-1 text-xs text-amber-800">Invoice was still generated. Restock or adjust the job if needed.</div>
+        </div>
+      )}
       {notice && (
         <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           <span>Payment recorded.</span>

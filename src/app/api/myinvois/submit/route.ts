@@ -10,6 +10,7 @@ import {
   issueStamp,
   buyerForOrder,
 } from "@/lib/myinvois";
+import { friendlyMyInvoisError, formatFriendlyError } from "@/lib/myinvois-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,16 @@ export async function POST(request: Request) {
 
     const r = await submitDocument(doc, order.invoiceNumber);
     if (!r.ok) {
-      return NextResponse.json({ error: "Submission failed", detail: r.detail, note: SIGNATURE_NOTE }, { status: r.status });
+      const fe = friendlyMyInvoisError(r.detail, { httpStatus: r.status, kind: "submit", fallback: "Submission failed" });
+      return NextResponse.json(
+        {
+          error: formatFriendlyError(fe),
+          messageZh: fe.messageZh,
+          detail: r.detail,
+          note: SIGNATURE_NOTE,
+        },
+        { status: r.status }
+      );
     }
     await prisma.workOrder.update({
       where: { id: orderId },

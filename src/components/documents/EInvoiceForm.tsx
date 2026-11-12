@@ -228,7 +228,7 @@ export function EInvoiceForm({
       });
       const data = await res.json();
       if (!res.ok) {
-        setMsg(data.error + (data.detail ? ": " + JSON.stringify(data.detail).slice(0, 200) : ""));
+        setMsg(data.error || "Submit failed");
       } else {
         const uid = data.submissionUID || "";
         setSubmissionUID(uid);

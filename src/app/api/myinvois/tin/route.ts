@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { searchTin } from "@/lib/myinvois";
 import { ID_TYPES } from "@/lib/einvoice-request";
+import { friendlyMyInvoisError, formatFriendlyError } from "@/lib/myinvois-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid ID type" }, { status: 400 });
     }
     if (idType === "NRIC" ? !/^\d{12}$/.test(idNo) : !/^[A-Z0-9]{5,20}$/.test(idNo)) {
-      return NextResponse.json({ error: idType === "NRIC" ? "NRIC must be 12 digits (no dashes)" : "Invalid ID number" }, { status: 400 });
+      return NextResponse.json(
+        { error: idType === "NRIC" ? "NRIC must be 12 digits (no dashes)" : "Invalid ID number" },
+        { status: 400 }
+      );
     }
     const r = await searchTin(idType, idNo, name || undefined);
-    if (!r.ok) return NextResponse.json({ error: r.message }, { status: r.status === 404 ? 404 : 502 });
+    if (!r.ok) {
+      const fe = friendlyMyInvoisError(r.message, { httpStatus: r.status, kind: "tin", fallback: r.message });
+      return NextResponse.json(
+        { error: formatFriendlyError(fe), messageZh: fe.messageZh },
+        { status: r.status === 404 ? 404 : 502 }
+      );
+    }
     return NextResponse.json({ tin: r.tin });
   } catch (e: any) {
     console.error(e);

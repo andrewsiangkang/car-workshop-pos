@@ -48,8 +48,16 @@ Database starts completely empty.
 
 ## 评估与路线图
 
-- 完整评估（已做 / 缺失 / 可改进）：见 [`REPORT-v0.3.3.md`](./REPORT-v0.3.3.md)
-- 下一版任务清单：见 [`ROADMAP-v0.3.4.md`](./ROADMAP-v0.3.4.md)
+所有评估与审计报告集中在 **[`docs/`](./docs/)**，方便找回：
+
+| 文件 | 说明 |
+|------|------|
+| [`docs/REPORT-v0.3.3.md`](./docs/REPORT-v0.3.3.md) | 完整评估（已做 / 缺失 / 可改进） |
+| [`docs/ROADMAP-v0.3.4.md`](./docs/ROADMAP-v0.3.4.md) | 任务清单（含 v0.3.5 已完成项） |
+| [`docs/car-workshop-pos-audit-v0.3.4.pdf`](./docs/car-workshop-pos-audit-v0.3.4.pdf) | 审计报告 PDF · v0.3.4 |
+| [`docs/car-workshop-pos-audit-v0.3.5.pdf`](./docs/car-workshop-pos-audit-v0.3.5.pdf) | 审计报告 PDF · **v0.3.5（当前）** |
+
+根目录也有 `REPORT-v0.3.3.md`、`ROADMAP-v0.3.4.md` 副本。
 
 ## Features
 
@@ -155,6 +163,7 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
 - **v0.3.2 电子发票**：发票页可用顾客 NRIC / 护照 / SSM 向 LHDN 查 TIN（Find customer TIN by NRIC），保存后点 Submit to LHDN 即用该买家资料开电子发票（之后的 Credit Note 也用同一买家）。提交并拿到 Long ID 后，发票和收据底部会显示 **LHDN 验证二维码**，顾客扫码直接打开 LHDN MyInvois 上的这张电子发票。用买家资料开单的发票不会并入每月合并电子发票，月结页会列出。旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。
 - **v0.3.3 LHDN e-Invoice QR**：提交后**自动轮询** LHDN 状态（约 2 秒起、每 4 秒一次、最多 12 次），拿到 Long ID 即停止并刷新，发票/收据底部显示验证二维码；仍可手动 Check Status。工单会保存 `submissionUid`，刷新页面后可继续轮询。未提交 LHDN 前，发票/收据显示**顾客请求 e-Invoice**二维码（连店内 Wi-Fi 扫码填 TIN）；提交并拿到 Long ID 后改为 **LHDN 验证**二维码。发票、收据、贷项通知（Credit Note）打印页在取得 Long ID 后显示 LHDN MyInvois 验证二维码（扫码打开官方 share 链接）。无 Long ID 时发票/收据显示占位提示；Credit Note 有 Long ID 才显示二维码。QR 由本地 `/api/qr` 生成，链接格式为 `{portal}/{uuid}/share/{longId}`。
 - **v0.3.4**：版本号更新。含 v0.3.3 能力：提交后自动轮询 Long ID、工单保存 `submissionUid`（刷新可续查）、发票/收据「顾客请求 e-Invoice」与「LHDN 验证」两种二维码。评估报告见 `REPORT-v0.3.3.md`，下一阶段任务见 `ROADMAP-v0.3.4.md`。
+- **v0.3.5**：设置页标明「未内置数字签名 / 正式环境风险」；LHDN 提交与查 TIN 错误人话化（中英）；完工开票时若有库存短缺（stock short）则在工单页提示；发票预览显示顾客请求 e-Invoice 的完整 URL，避免扫到 localhost。
   - 修复：关柜时现金**少了或多了**也能关柜（备注改为选填，差额照样记在结算单上）；老板的“留作明天的备用金”默认不会超过点出来的现金（以前现金少于开柜备用金时，按钮会被锁住）。关柜改为点两下确认，不再弹出浏览器对话框。
   - 修复：桌面版弹出确认 / 提示框后，输入框无法打字的问题（弹窗关闭后自动把键盘焦点还给窗口和原来的输入框）。
 - 老板可在 Counter 页查看历史结算记录。
