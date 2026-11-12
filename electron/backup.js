@@ -74,6 +74,30 @@ function prune(dir, keep) {
   } catch (e) {}
 }
 
+/**
+ * 【中文】把上传的图片（发票照片、收款二维码）也备份：只复制新增的文件，从不删除。
+ * Mirror the uploads folder (scanned supplier invoices, payment QR) into a backup
+ * folder. Uploaded files are never changed or deleted (unique names), so only new
+ * files are copied. Returns the number copied.
+ */
+function mirrorUploads(destRoot) {
+  const src = path.join(ctx.dataDir, "uploads");
+  if (!fs.existsSync(src)) return 0;
+  const dest = path.join(destRoot, "uploads");
+  fs.mkdirSync(dest, { recursive: true });
+  let n = 0;
+  for (const f of fs.readdirSync(src)) {
+    const from = path.join(src, f);
+    const to = path.join(dest, f);
+    try {
+      if (!fs.statSync(from).isFile() || fs.existsSync(to)) continue;
+      fs.copyFileSync(from, to);
+      n++;
+    } catch (e) {}
+  }
+  return n;
+}
+
 /** Copy the database. force = ignore "unchanged since last backup" check. */
 // 【中文】执行一次备份（用 SQLite 一致性快照），并按设置只保留最近 N 份。
 function runBackup(reason, force) {
@@ -81,6 +105,11 @@ function runBackup(reason, force) {
   const cfg = getConfig();
   const status = getStatus();
   try {
+    // Photos first: cheap, and done even when the database itself is unchanged.
+    try { mirrorUploads(ctx.autoDir); } catch (e) { console.error("backup: uploads", e.message); }
+    if (cfg.extraDir) {
+      try { mirrorUploads(cfg.extraDir); } catch (e) { console.error("backup: uploads (extra)", e.message); }
+    }
     if (!fs.existsSync(ctx.dbPath)) return { ok: false, error: "database file not found" };
     const dbStat = fs.statSync(ctx.dbPath);
     if (!force && status.lastDbMtime && status.lastDbMtime === dbStat.mtimeMs && status.lastOk) {

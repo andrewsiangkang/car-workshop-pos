@@ -148,13 +148,34 @@ model WorkOrderItem {
 
 model Payment {
   id          String        @id @default(cuid())
-  amount      Float
+  amount      Float         // amount applied to the bill (negative = refund). For cash: handed over minus change.
   method      PaymentMethod @default(CASH)
   reference   String?       // TNG / Transfer reference number
   notes       String?
   paidAt      DateTime      @default(now())
+  tendered    Float?        // CASH only: money the customer handed over
+  changeGiven Float?        // CASH only: change given back (tendered - amount)
   workOrderId String
   workOrder   WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  shiftId     String?       // the counter session (CashShift) this money went through
+  shift       CashShift?    @relation(fields: [shiftId], references: [id])
+}
+
+// ===== Cash counter: open with a float, close with a cash count =====
+// Expected cash in the drawer at close = openingFloat + CASH payments (net of change) - CASH refunds.
+model CashShift {
+  id           String    @id @default(cuid())
+  openedAt     DateTime  @default(now())
+  openedByName String
+  openingFloat Float
+  closedAt     DateTime?
+  closedByName String?
+  expectedCash Float?    // snapshot taken at close
+  countedCash  Float?    // what was physically counted
+  variance     Float?    // counted - expected: negative = shortage, positive = overage
+  notes        String?
+
+  payments     Payment[]
 }
 
 model Expense {
@@ -290,6 +311,8 @@ model SupplierInvoice {
   status      String   @default("UNPAID") // UNPAID / PARTIAL / PAID
   notes       String?
   imageUrl    String?                   // scanned copy (optional)
+  voidedAt    DateTime?                 // set when cancelled; stock was reversed
+  voidReason  String?
   createdAt   DateTime @default(now())
   createdById String?
 
@@ -326,5 +349,7 @@ model PaymentVoucher {
   createdAt         DateTime @default(now())
   createdById       String?
   supplierInvoiceId String?
+  voidedAt          DateTime?            // set when cancelled; amount no longer counts
+  voidReason        String?
   supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
 }

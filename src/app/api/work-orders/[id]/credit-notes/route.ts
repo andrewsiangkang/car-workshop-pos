@@ -3,6 +3,7 @@ import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextCreditNoteNumber, money } from "@/lib/docnumber";
 import { PAYMENT_METHODS } from "@/lib/status";
+import { getOpenShift } from "@/lib/counter";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
       }
 
+      // Money paid back to a customer leaves the drawer, so it must belong to an open counter session.
+      let refundShiftId: string | null = null;
+      if (refundAmount > 0) {
+        const shift = await getOpenShift(tx);
+        if (!shift) {
+          throw new UserError("The counter is closed. Open the counter first (Counter page) before paying a refund.");
+        }
+        refundShiftId = shift.id;
+      }
+
       // SST part of the credit, in the same proportion as on the invoice.
       const taxAmount = o.totalAmount > 0 ? money((amount * o.taxAmount) / o.totalAmount) : 0;
       const number = await nextCreditNoteNumber(tx);
@@ -72,6 +83,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           data: {
             amount: -refundAmount,
             method: refundMethod,
+            shiftId: refundShiftId,
             workOrderId: id,
             notes: `Refund - credit note ${number}`,
             reference: String(b.refundReference || "").slice(0, 100) || null,

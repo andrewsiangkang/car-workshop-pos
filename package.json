@@ -1,6 +1,6 @@
 {
   "name": "car-workshop-pos",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
-    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -26,7 +26,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.0",
-    "tesseract.js": "5.1.1",
+    "tesseract.js": "^5.1.1",
     "zod": "^3.25.28"
   },
   "devDependencies": {

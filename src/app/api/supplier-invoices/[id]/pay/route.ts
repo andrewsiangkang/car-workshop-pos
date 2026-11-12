@@ -23,6 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const voucher = await prisma.$transaction(async (tx) => {
       const inv = await tx.supplierInvoice.findUnique({ where: { id }, include: { supplier: true } });
       if (!inv) throw new UserError("Supplier invoice not found");
+      if (inv.voidedAt) throw new UserError("This invoice has been voided");
       const remaining = money(inv.totalAmount - inv.paidAmount);
       if (remaining <= 0.005) throw new UserError("This invoice is already fully paid");
       if (amount > remaining + 0.005) throw new UserError(`Amount is more than the balance (RM ${remaining.toFixed(2)})`);

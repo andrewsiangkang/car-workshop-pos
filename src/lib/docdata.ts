@@ -18,7 +18,7 @@ export async function loadDocData(
 ): Promise<{ data: DocData | null; missing: "order" | "number" | null }> {
   const order = await prisma.workOrder.findUnique({
     where: { id },
-    include: { customer: true, vehicle: true, items: true, payments: true },
+    include: { customer: true, vehicle: true, items: true, payments: { orderBy: { paidAt: "asc" } } },
   });
   if (!order) return { data: null, missing: "order" };
 
@@ -80,6 +80,14 @@ export async function loadDocData(
       notes: type === "quotation" ? order.diagnosis : null,
       paymentMethod: last ? last.method : null,
       paymentReference: last ? last.reference : null,
+      payments: order.payments.map((p) => ({
+        method: p.method,
+        amount: p.amount,
+        tendered: p.tendered,
+        changeGiven: p.changeGiven,
+        reference: p.reference,
+        paidAt: p.paidAt,
+      })),
       footer: shop?.receiptFooter,
       eInvoice: order.eInvoiceUuid
         ? { uuid: order.eInvoiceUuid, longId: order.eInvoiceLongId, portal: portalUrl(shop?.myInvoisSandbox ?? true) }

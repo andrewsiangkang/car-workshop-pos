@@ -17,6 +17,7 @@ import {
   FileStack,
   Truck,
   ReceiptText,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,7 @@ import { useUser } from "@/components/layout/UserProvider";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, ownerOnly: false },
   { href: "/work-orders", label: "Work Orders", icon: Wrench, ownerOnly: false },
+  { href: "/counter", label: "Counter", icon: Banknote, ownerOnly: false },
   { href: "/customers", label: "Customers", icon: Users, ownerOnly: false },
   { href: "/vehicles", label: "Vehicles", icon: Car, ownerOnly: false },
   { href: "/inventory", label: "Inventory", icon: Package, ownerOnly: false },
@@ -128,7 +130,7 @@ export function Sidebar() {
                 {name || "User"} · {isOwner ? "Boss" : "Staff"}
               </div>
               Local · Data stored on this computer
-              <div className="mt-1 text-slate-400">v0.1.1</div>
+              <div className="mt-1 text-slate-400">v0.2.2</div>
             </div>
           </div>
         </div>

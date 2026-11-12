@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function SuppliersPage() {
   const list = await prisma.supplier.findMany({
     orderBy: { name: "asc" },
-    include: { invoices: { select: { totalAmount: true, paidAmount: true, invoiceDate: true } } },
+    include: { invoices: { where: { voidedAt: null }, select: { totalAmount: true, paidAmount: true, invoiceDate: true } } },
   });
   return (
     <div className="max-w-5xl">

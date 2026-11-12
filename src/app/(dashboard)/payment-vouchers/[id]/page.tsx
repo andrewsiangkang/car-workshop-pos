@@ -5,6 +5,8 @@ import { PrintButton } from "@/components/documents/PrintButton";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PAYMENT_LABEL } from "@/lib/status";
+import { VoidButton } from "@/components/suppliers/VoidButton";
+import { fullAddress } from "@/lib/docdata";
 
 export const dynamic = "force-dynamic";
 
@@ -22,17 +24,33 @@ export default async function VoucherPage({ params }: { params: Promise<{ id: st
           <ArrowLeft className="h-4 w-4" />
           Back to List
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          {!v.voidedAt && (
+            <VoidButton
+              url={`/api/payment-vouchers/${v.id}/void`}
+              label="Void voucher"
+              confirmText={v.supplierInvoice
+                ? "Void this voucher? The supplier invoice will show this amount as unpaid again. The record is kept."
+                : "Void this voucher? The record is kept and marked VOID."}
+            />
+          )}
+          <PrintButton />
+        </div>
       </div>
+      {v.voidedAt && (
+        <div className="mx-auto mb-4 max-w-2xl rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <b>VOID</b> since {formatDate(v.voidedAt)} — {v.voidReason}
+        </div>
+      )}
       <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-8 shadow-sm print:border-0 print:shadow-none">
         <div className="mb-6 flex items-start justify-between">
           <div>
             <div className="text-lg font-bold">{shop?.name || "Workshop"}</div>
-            {shop?.address && <div className="text-sm text-slate-600">{shop.address}</div>}
+            {fullAddress(shop) && <div className="whitespace-pre-line text-sm text-slate-600">{fullAddress(shop)}</div>}
             {shop?.phone && <div className="text-sm text-slate-600">{shop.phone}</div>}
           </div>
           <div className="text-right">
-            <div className="text-xl font-bold tracking-wide">PAYMENT VOUCHER</div>
+            <div className="text-xl font-bold tracking-wide">PAYMENT VOUCHER{v.voidedAt ? " (VOID)" : ""}</div>
             <div className="text-sm text-slate-600">{v.number}</div>
             <div className="text-sm text-slate-600">{formatDate(v.paidAt)}</div>
           </div>

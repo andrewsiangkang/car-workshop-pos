@@ -28,8 +28,11 @@ const CATEGORY_RULES: Array<[string, RegExp]> = [
   ["Electrical", /bulb|lamp|fuse|relay|sensor|alternator|starter|wiper|switch|wiring|灯|保险丝|传感器|发电机|雨刮/i],
   ["Air Conditioning", /aircond|air cond|a\/c|compressor|condenser|evaporator|冷气|压缩机/i],
   ["Body & Exterior", /bumper|mirror|fender|bonnet|grille|door|bodi|保险杠|后视镜/i],
-  ["Labour / Service", /labou?r|service charge|upah|工钱|服务费/i],
+  ["Labour / Service", /labou?r|service charge|delivery|transport|courier|postage|freight|penghantaran|upah|工钱|服务费|运费/i],
 ];
+
+/** Lines in this category are charges (delivery, labour), not goods — never stocked. */
+export const SERVICE_CATEGORY = "Labour / Service";
 
 export function categorize(description: string): string {
   for (const [cat, re] of CATEGORY_RULES) if (re.test(description)) return cat;

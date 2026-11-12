@@ -19,7 +19,7 @@ export default async function SupplierInvoicesPage() {
     take: 300,
     include: { supplier: { select: { id: true, name: true } } },
   });
-  const owing = list.reduce((s, i) => s + Math.max(0, i.totalAmount - i.paidAmount), 0);
+  const owing = list.filter((i) => !i.voidedAt).reduce((s, i) => s + Math.max(0, i.totalAmount - i.paidAmount), 0);
 
   return (
     <div>
@@ -70,9 +70,13 @@ export default async function SupplierInvoicesPage() {
                   </Link>
                 </td>
                 <td className="px-5 py-3 text-right">{formatCurrency(i.totalAmount)}</td>
-                <td className="px-5 py-3 text-right">{formatCurrency(Math.max(0, i.totalAmount - i.paidAmount))}</td>
+                <td className="px-5 py-3 text-right">{i.voidedAt ? "-" : formatCurrency(Math.max(0, i.totalAmount - i.paidAmount))}</td>
                 <td className="px-5 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${COLOR[i.status] || ""}`}>{LABEL[i.status] || i.status}</span>
+                  {i.voidedAt ? (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">Void</span>
+                  ) : (
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${COLOR[i.status] || ""}`}>{LABEL[i.status] || i.status}</span>
+                  )}
                 </td>
               </tr>
             ))}

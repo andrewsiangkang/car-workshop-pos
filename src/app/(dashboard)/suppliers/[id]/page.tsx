@@ -31,7 +31,7 @@ export default async function SupplierDetail({ params }: { params: Promise<{ id:
 
   // 【中文】这个供应商买过的东西：同名合并，只保留最近一次的价格、数量和日期
   const map = new Map<string, Bought>();
-  for (const inv of s.invoices) {
+  for (const inv of s.invoices.filter((i) => !i.voidedAt)) {
     for (const it of inv.items) {
       const key = it.description.toLowerCase();
       if (!map.has(key)) {
@@ -57,7 +57,7 @@ export default async function SupplierDetail({ params }: { params: Promise<{ id:
     const st = b.inventoryItemId ? stockById.get(b.inventoryItemId) : undefined;
     return !!st && st.minStockLevel > 0 && st.quantityOnHand <= st.minStockLevel;
   });
-  const owing = s.invoices.reduce((a, i) => a + Math.max(0, i.totalAmount - i.paidAmount), 0);
+  const owing = s.invoices.filter((i) => !i.voidedAt).reduce((a, i) => a + Math.max(0, i.totalAmount - i.paidAmount), 0);
 
   return (
     <div className="max-w-5xl">
@@ -144,7 +144,7 @@ export default async function SupplierDetail({ params }: { params: Promise<{ id:
                   </Link>
                 </td>
                 <td className="px-5 py-3 text-right">{formatCurrency(i.totalAmount)}</td>
-                <td className="px-5 py-3 text-right">{formatCurrency(Math.max(0, i.totalAmount - i.paidAmount))}</td>
+                <td className="px-5 py-3 text-right">{i.voidedAt ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">VOID</span> : formatCurrency(Math.max(0, i.totalAmount - i.paidAmount))}</td>
               </tr>
             ))}
           </tbody>

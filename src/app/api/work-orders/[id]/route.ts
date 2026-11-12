@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { nextDocNumber, money } from "@/lib/docnumber";
 import { VALID_STATUSES, PAYMENT_METHODS } from "@/lib/status";
 import { computeTotals, effectiveRate, normaliseScope } from "@/lib/tax";
+import { getOpenShift } from "@/lib/counter";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,11 @@ export async function PATCH(
       // Balance is re-read INSIDE the transaction, so a double-click / two cashiers
       // cannot record the same balance twice (overpayment).
       const updated = await prisma.$transaction(async (tx) => {
+        // Every payment belongs to a counter session, so the day can be settled afterwards.
+        const shift = await getOpenShift(tx);
+        if (!shift) {
+          throw new UserError("The counter is closed. Open the counter first (Counter page), then take payment.");
+        }
         const cur = await tx.workOrder.findUnique({
           where: { id },
           select: { totalAmount: true, paidAmount: true, creditedAmount: true, receiptNumber: true },
@@ -108,11 +114,29 @@ export async function PATCH(
         if (amount > remaining) {
           throw new UserError(`Payment amount cannot exceed remaining balance RM ${remaining.toFixed(2)}`);
         }
+        // Cash: what the customer handed over and the change to give back (printed on the receipt).
+        // `amount` is what is applied to the bill, so the drawer gains `amount` (received - change).
+        let tendered: number | null = null;
+        let changeGiven: number | null = null;
+        if (method === "CASH") {
+          const raw = body.tendered;
+          tendered = raw === undefined || raw === null || raw === "" ? amount : money(Number(raw));
+          if (!Number.isFinite(tendered) || tendered > 100000000) throw new UserError("Invalid cash received amount");
+          if (tendered < amount) {
+            throw new UserError(
+              `Cash received (RM ${tendered.toFixed(2)}) is less than the amount being paid (RM ${amount.toFixed(2)})`
+            );
+          }
+          changeGiven = money(tendered - amount);
+        }
         const receiptNumber = cur.receiptNumber || (await nextDocNumber("RC", "receiptNumber", tx));
         await tx.payment.create({
           data: {
             amount,
             method,
+            tendered,
+            changeGiven,
+            shiftId: shift.id,
             workOrderId: id,
             notes: String(body.notes || "").slice(0, 500) || null,
             reference: String(body.reference || "").slice(0, 100) || null,

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScanLine, Plus, Trash2 } from "lucide-react";
-import { parseInvoiceText } from "@/lib/supplier-parse";
+import { parseInvoiceText, categorize, SERVICE_CATEGORY } from "@/lib/supplier-parse";
 import { recognizeImage, shrinkImage } from "@/lib/ocr-client";
 import { formatCurrency } from "@/lib/utils";
 
@@ -15,6 +15,8 @@ const CATEGORIES = [
 ];
 const input =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+/** Today in Malaysia time (UTC+8), YYYY-MM-DD — toISOString() alone gives yesterday before 8 am. */
+const todayMY = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const emptyRow = (): Row => ({ description: "", category: "Others", quantity: "1", unitCost: "", sellingPrice: "" });
 const num = (s: string) => {
   const n = Number(s);
@@ -25,7 +27,7 @@ export function NewSupplierInvoice() {
   const router = useRouter();
   const [supplierName, setSupplierName] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [invoiceDate, setInvoiceDate] = useState(todayMY());
   const [dueDate, setDueDate] = useState("");
   const [taxAmount, setTaxAmount] = useState("");
   const [notes, setNotes] = useState("");
@@ -37,6 +39,9 @@ export function NewSupplierInvoice() {
   const [scanNote, setScanNote] = useState("");
   const [scannedTotal, setScannedTotal] = useState(0);
   const [saving, setSaving] = useState(false);
+  // The invoice photo uploads in the background; Save waits for it so the photo is never lost.
+  const uploadRef = useRef<Promise<string> | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -54,13 +59,19 @@ export function NewSupplierInvoice() {
     setProgress(0);
     try {
       // 保存发票照片副本（失败不影响扫描）
-      shrinkImage(file).then(async (blob) => {
-        if (!blob) return;
-        const fd = new FormData();
-        fd.append("file", new File([blob], "invoice.jpg", { type: "image/jpeg" }));
-        const r = await fetch("/api/upload", { method: "POST", body: fd });
-        if (r.ok) setImageUrl((await r.json()).url);
-      }).catch(() => {});
+      setUploading(true);
+      uploadRef.current = shrinkImage(file)
+        .then(async (blob) => {
+          if (!blob) return "";
+          const fd = new FormData();
+          fd.append("file", new File([blob], "invoice.jpg", { type: "image/jpeg" }));
+          const r = await fetch("/api/upload", { method: "POST", body: fd });
+          const url = r.ok ? String((await r.json()).url || "") : "";
+          if (url) setImageUrl(url);
+          return url;
+        })
+        .catch(() => "")
+        .finally(() => setUploading(false));
 
       const text = await recognizeImage(file, setProgress);
       const p = parseInvoiceText(text);
@@ -105,6 +116,7 @@ export function NewSupplierInvoice() {
     if (items.length === 0) return setError("Add at least one item");
     setSaving(true);
     try {
+      const photoUrl = (uploadRef.current ? await uploadRef.current : "") || imageUrl;
       const res = await fetch("/api/supplier-invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,7 +127,7 @@ export function NewSupplierInvoice() {
           dueDate: dueDate || null,
           taxAmount: num(taxAmount),
           notes,
-          imageUrl,
+          imageUrl: photoUrl,
           items: items.map((r) => ({
             description: r.description,
             category: r.category,
@@ -208,7 +220,18 @@ export function NewSupplierInvoice() {
         <div className="space-y-3">
           {rows.map((r, i) => (
             <div key={i} className="grid gap-2 rounded-lg border border-slate-100 p-3 sm:grid-cols-12">
-              <input className={input + " sm:col-span-4"} placeholder="Item description" value={r.description} onChange={(e) => setRow(i, { description: e.target.value })} />
+              <input
+                className={input + " sm:col-span-4"}
+                placeholder="Item description"
+                value={r.description}
+                onChange={(e) => {
+                  const description = e.target.value;
+                  // Suggest a category while it is still the default.
+                  setRow(i, r.category === "Others" || r.category === categorize(r.description)
+                    ? { description, category: categorize(description) }
+                    : { description });
+                }}
+              />
               <input list="cat-list" className={input + " sm:col-span-2"} placeholder="Category" value={r.category} onChange={(e) => setRow(i, { category: e.target.value })} />
               <input className={input + " sm:col-span-1"} placeholder="Qty" inputMode="decimal" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} />
               <input className={input + " sm:col-span-2"} placeholder="Unit cost" inputMode="decimal" value={r.unitCost} onChange={(e) => setRow(i, { unitCost: e.target.value })} />
@@ -216,6 +239,9 @@ export function NewSupplierInvoice() {
               <button type="button" onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs))} className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 sm:col-span-1" aria-label="Remove">
                 <Trash2 className="h-4 w-4" />
               </button>
+              {r.category === SERVICE_CATEGORY && (
+                <p className="text-xs text-slate-500 sm:col-span-12">Charge only (e.g. delivery, labour) — recorded on the invoice, not added to stock.</p>
+              )}
             </div>
           ))}
         </div>
@@ -242,7 +268,7 @@ export function NewSupplierInvoice() {
 
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       <button type="button" onClick={save} disabled={saving || scanning} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-        {saving ? "Saving..." : "Save & Add to Stock"}
+        {saving ? (uploading ? "Saving photo..." : "Saving...") : "Save & Add to Stock"}
       </button>
     </div>
   );

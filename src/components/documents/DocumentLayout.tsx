@@ -51,6 +51,14 @@ export type DocData = {
   notes?: string | null;
   paymentMethod?: string | null;
   paymentReference?: string | null;
+  payments?: Array<{
+    method: string;
+    amount: number;
+    tendered?: number | null;
+    changeGiven?: number | null;
+    reference?: string | null;
+    paidAt: string | Date;
+  }>;
   footer?: string | null;
   eInvoice?: { uuid: string; longId?: string | null; portal?: string } | null;
 };
@@ -215,11 +223,41 @@ export function DocumentLayout({ data }: { data: DocData }) {
         </div>
       )}
 
-      {data.type === "receipt" && data.paymentMethod && (
-        <div className="mt-4 text-sm text-slate-600">
-          Payment Method: {PAY_LABEL[data.paymentMethod] || data.paymentMethod}
-          {data.paymentReference && <div>Reference: {data.paymentReference}</div>}
+      {data.type === "receipt" && data.payments && data.payments.length > 0 ? (
+        <div className="mt-4 rounded-lg border border-slate-200 p-3 text-sm">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Payment Details</div>
+          {data.payments.map((p, i) => (
+            <div key={i} className="border-t border-slate-100 py-1.5 first:border-t-0">
+              <div className="flex justify-between">
+                <span className="text-slate-700">
+                  {formatDate(p.paidAt)} · {p.amount < 0 ? "Refund" : PAY_LABEL[p.method] || p.method}
+                  {p.reference ? ` (${p.reference})` : ""}
+                </span>
+                <span className="font-medium">{formatCurrency(p.amount)}</span>
+              </div>
+              {p.method === "CASH" && p.amount > 0 && p.tendered != null && (
+                <div className="mt-0.5 space-y-0.5 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Cash Received</span>
+                    <span>{formatCurrency(p.tendered)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-slate-800">
+                    <span>Change</span>
+                    <span>{formatCurrency(p.changeGiven ?? 0)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
+      ) : (
+        data.type === "receipt" &&
+        data.paymentMethod && (
+          <div className="mt-4 text-sm text-slate-600">
+            Payment Method: {PAY_LABEL[data.paymentMethod] || data.paymentMethod}
+            {data.paymentReference && <div>Reference: {data.paymentReference}</div>}
+          </div>
+        )
       )}
 
       {data.type === "invoice" && (data.shop.bankName || data.shop.bankAccount || data.shop.paymentQrUrl) && (

@@ -8,6 +8,7 @@ import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status";
 import { OrderActions } from "@/components/work-orders/OrderActions";
 import { CreditNotePanel } from "@/components/work-orders/CreditNotePanel";
 import { getCurrentUser, isOwner } from "@/lib/auth";
+import { getOpenShift } from "@/lib/counter";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function WorkOrderDetailPage({
     include: { customer: true, vehicle: true, items: true, payments: true, creditNotes: { orderBy: { createdAt: "asc" } } },
   });
   if (!order) notFound();
+  const counterOpen = !!(await getOpenShift());
 
   const remaining = Math.max(0, order.totalAmount - order.creditedAmount - order.paidAmount);
   const isLive = (s: string | null) => !["invalid", "cancelled"].includes((s || "").toLowerCase());
@@ -99,6 +101,7 @@ export default async function WorkOrderDetailPage({
         status={order.status}
         hasInvoice={!!order.invoiceNumber}
         remaining={remaining}
+        counterOpen={counterOpen}
       />
 
       {owner && order.invoiceNumber && order.status !== "CANCELLED" && (
@@ -194,7 +197,15 @@ export default async function WorkOrderDetailPage({
           <div className="divide-y divide-slate-100 text-sm">
             {order.payments.map((p) => (
               <div key={p.id} className="flex justify-between px-5 py-3">
-                <span className="text-slate-600">{formatDateTime(p.paidAt)} · {p.method}</span>
+                <div>
+                  <span className="text-slate-600">{formatDateTime(p.paidAt)} · {p.method}</span>
+                  {p.method === "CASH" && p.tendered != null && (
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      <span>Received</span> {formatCurrency(p.tendered)} <span>·</span> <span>Change</span>{" "}
+                      {formatCurrency(p.changeGiven ?? 0)}
+                    </div>
+                  )}
+                </div>
                 <span className="font-medium">{formatCurrency(p.amount)}</span>
               </div>
             ))}

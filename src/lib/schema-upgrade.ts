@@ -25,10 +25,37 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "ShopProfile", column: "stateCode", ddl: "TEXT" },
   { table: "WorkOrder", column: "creditedAmount", ddl: "REAL NOT NULL DEFAULT 0" },
   { table: "WorkOrder", column: "consolidatedId", ddl: "TEXT" },
+  // v0.2.1 — void supplier invoices / payment vouchers (for shops already on v0.2.0;
+  // new tables get these columns from the CREATE TABLE text below)
+  { table: "SupplierInvoice", column: "voidedAt", ddl: "DATETIME" },
+  { table: "SupplierInvoice", column: "voidReason", ddl: "TEXT" },
+  { table: "PaymentVoucher", column: "voidedAt", ddl: "DATETIME" },
+  { table: "PaymentVoucher", column: "voidReason", ddl: "TEXT" },
+  // cash counter: cash received / change on a payment, and which counter session it belongs to
+  { table: "Payment", column: "tendered", ddl: "REAL" },
+  { table: "Payment", column: "changeGiven", ddl: "REAL" },
+  { table: "Payment", column: "shiftId", ddl: `TEXT REFERENCES "CashShift" ("id") ON DELETE SET NULL ON UPDATE CASCADE` },
 ];
 
 // 【中文】新版本新增的表（含索引）。
 const TABLES: Array<{ table: string; ddl: string[] }> = [
+  {
+    table: "CashShift",
+    ddl: [
+      `CREATE TABLE "CashShift" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "openedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "openedByName" TEXT NOT NULL,
+    "openingFloat" REAL NOT NULL,
+    "closedAt" DATETIME,
+    "closedByName" TEXT,
+    "expectedCash" REAL,
+    "countedCash" REAL,
+    "variance" REAL,
+    "notes" TEXT
+)`,
+    ],
+  },
   {
     table: "CreditNote",
     ddl: [
@@ -104,6 +131,8 @@ const TABLES: Array<{ table: string; ddl: string[] }> = [
     "status" TEXT NOT NULL DEFAULT 'UNPAID',
     "notes" TEXT,
     "imageUrl" TEXT,
+    "voidedAt" DATETIME,
+    "voidReason" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdById" TEXT,
     CONSTRAINT "SupplierInvoice_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "Supplier" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -146,6 +175,8 @@ const TABLES: Array<{ table: string; ddl: string[] }> = [
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdById" TEXT,
     "supplierInvoiceId" TEXT,
+    "voidedAt" DATETIME,
+    "voidReason" TEXT,
     CONSTRAINT "PaymentVoucher_supplierInvoiceId_fkey" FOREIGN KEY ("supplierInvoiceId") REFERENCES "SupplierInvoice" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 )`,
       `CREATE UNIQUE INDEX "PaymentVoucher_number_key" ON "PaymentVoucher"("number")`,

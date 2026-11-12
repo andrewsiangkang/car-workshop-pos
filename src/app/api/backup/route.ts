@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { readFile, mkdir, unlink } from "fs/promises";
+import { readFile, mkdir, unlink, readdir, copyFile } from "fs/promises";
+import { existsSync } from "fs";
 import path from "path";
+import { uploadDir } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,15 @@ export async function POST() {
     const name = `workshop-${stamp()}.db`;
     const dest = path.join(backupDir(), name);
     await snapshot(dest);
+    // Uploaded photos (supplier invoices, payment QR) are separate files: copy new ones too.
+    const src = uploadDir();
+    if (existsSync(src)) {
+      const to = path.join(backupDir(), "uploads");
+      await mkdir(to, { recursive: true });
+      for (const f of await readdir(src)) {
+        if (!existsSync(path.join(to, f))) await copyFile(path.join(src, f), path.join(to, f)).catch(() => {});
+      }
+    }
     // Only the file name goes back to the browser, not the full disk path.
     return NextResponse.json({ ok: true, message: `Backed up to backups/${name}` });
   } catch (e) {

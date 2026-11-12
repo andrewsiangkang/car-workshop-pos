@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextSupplierInvoiceNumber, money } from "@/lib/docnumber";
-import { categorize } from "@/lib/supplier-parse";
+import { categorize, SERVICE_CATEGORY } from "@/lib/supplier-parse";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,26 @@ export async function POST(request: Request) {
       const stock = await tx.inventoryItem.findMany({ select: { id: true, name: true, sku: true, category: true } });
       let created = 0;
       let updated = 0;
+      let serviceLines = 0;
       for (const l of lines) {
+        // Delivery / labour / service charges are costs, not goods: record them on the
+        // invoice only, never as stock that could be sold (was a bug).
+        if (l.category === SERVICE_CATEGORY) {
+          await tx.supplierInvoiceItem.create({
+            data: {
+              description: l.description,
+              sku: l.sku,
+              category: l.category,
+              quantity: l.quantity,
+              unitCost: l.unitCost,
+              total: l.total,
+              invoiceId: invoice.id,
+              inventoryItemId: null,
+            },
+          });
+          serviceLines += 1;
+          continue;
+        }
         let item = stock.find((s) => (l.sku && s.sku && s.sku.toLowerCase() === l.sku.toLowerCase()) || s.name.toLowerCase() === l.description.toLowerCase());
         if (item) {
           await tx.inventoryItem.update({
@@ -142,7 +161,7 @@ export async function POST(request: Request) {
           },
         });
       }
-      return { id: invoice.id, internalNo, supplierId: supplier.id, created, updated };
+      return { id: invoice.id, internalNo, supplierId: supplier.id, created, updated, serviceLines };
     });
     return NextResponse.json(result, { status: 201 });
   } catch (e) {

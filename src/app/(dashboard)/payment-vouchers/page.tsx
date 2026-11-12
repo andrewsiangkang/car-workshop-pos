@@ -47,7 +47,10 @@ export default async function PaymentVouchersPage() {
                 <td className="px-5 py-3">{v.payee}</td>
                 <td className="px-5 py-3 text-slate-500">{v.purpose}</td>
                 <td className="px-5 py-3">{PAYMENT_LABEL[v.method] || v.method}</td>
-                <td className="px-5 py-3 text-right">{formatCurrency(v.amount)}</td>
+                <td className={`px-5 py-3 text-right ${v.voidedAt ? "text-slate-400 line-through" : ""}`}>
+                  {formatCurrency(v.amount)}
+                  {v.voidedAt && <span className="ml-2 text-xs">VOID</span>}
+                </td>
               </tr>
             ))}
           </tbody>
