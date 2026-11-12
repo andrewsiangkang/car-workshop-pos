@@ -18,5 +18,9 @@ export async function summarizeShift(
     where: { shiftId: shift.id },
     select: { amount: true, method: true, tendered: true, changeGiven: true },
   });
-  return computeSummary(shift.openingFloat, rows);
+  const payouts = await db.paymentVoucher.aggregate({
+    where: { shiftId: shift.id, voidedAt: null },
+    _sum: { amount: true },
+  });
+  return computeSummary(shift.openingFloat, rows, payouts._sum.amount ?? 0);
 }

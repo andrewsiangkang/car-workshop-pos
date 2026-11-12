@@ -11,6 +11,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [idleNotice, setIdleNotice] = useState(false);
+
+  useEffect(() => {
+    setIdleNotice(new URLSearchParams(window.location.search).get("idle") === "1");
+  }, []);
 
   useEffect(() => {
     fetch("/api/auth/setup")
@@ -38,6 +43,9 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
+      try {
+        localStorage.setItem("workshop-last-active", String(Date.now()));
+      } catch {}
       router.push("/dashboard");
       router.refresh();
     } catch {
@@ -61,6 +69,9 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-slate-500">Sign in to continue</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {idleNotice && !error && (
+            <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">You were logged out after 5 minutes of inactivity. Please sign in again.</div>
+          )}
           {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Username</label>

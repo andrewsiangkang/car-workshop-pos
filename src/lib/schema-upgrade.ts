@@ -35,6 +35,17 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "Payment", column: "tendered", ddl: "REAL" },
   { table: "Payment", column: "changeGiven", ddl: "REAL" },
   { table: "Payment", column: "shiftId", ddl: `TEXT REFERENCES "CashShift" ("id") ON DELETE SET NULL ON UPDATE CASCADE` },
+  // v0.2.4 — daily settlement: denomination counts, float kept, bank deposit
+  { table: "CashShift", column: "openingCount", ddl: "TEXT" },
+  { table: "CashShift", column: "countedBreakdown", ddl: "TEXT" },
+  { table: "CashShift", column: "floatKept", ddl: "REAL" },
+  { table: "CashShift", column: "depositAmount", ddl: "REAL" },
+  { table: "CashShift", column: "depositedAt", ddl: "DATETIME" },
+  { table: "CashShift", column: "depositedByName", ddl: "TEXT" },
+  { table: "CashShift", column: "depositRef", ddl: "TEXT" },
+  // v0.2.5 — other payment methods ticked as checked; cash vouchers paid from the drawer
+  { table: "CashShift", column: "reconciled", ddl: "TEXT" },
+  { table: "PaymentVoucher", column: "shiftId", ddl: `TEXT REFERENCES "CashShift" ("id") ON DELETE SET NULL ON UPDATE CASCADE` },
 ];
 
 // 【中文】新版本新增的表（含索引）。
@@ -52,7 +63,15 @@ const TABLES: Array<{ table: string; ddl: string[] }> = [
     "expectedCash" REAL,
     "countedCash" REAL,
     "variance" REAL,
-    "notes" TEXT
+    "notes" TEXT,
+    "openingCount" TEXT,
+    "countedBreakdown" TEXT,
+    "floatKept" REAL,
+    "depositAmount" REAL,
+    "depositedAt" DATETIME,
+    "depositedByName" TEXT,
+    "depositRef" TEXT,
+    "reconciled" TEXT
 )`,
     ],
   },
@@ -177,6 +196,8 @@ const TABLES: Array<{ table: string; ddl: string[] }> = [
     "supplierInvoiceId" TEXT,
     "voidedAt" DATETIME,
     "voidReason" TEXT,
+    "shiftId" TEXT,
+    CONSTRAINT "PaymentVoucher_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "CashShift" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "PaymentVoucher_supplierInvoiceId_fkey" FOREIGN KEY ("supplierInvoiceId") REFERENCES "SupplierInvoice" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 )`,
       `CREATE UNIQUE INDEX "PaymentVoucher_number_key" ON "PaymentVoucher"("number")`,

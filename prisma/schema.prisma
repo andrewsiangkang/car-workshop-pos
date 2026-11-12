@@ -175,7 +175,18 @@ model CashShift {
   variance     Float?    // counted - expected: negative = shortage, positive = overage
   notes        String?
 
+  // v0.2.4 — denomination counts, float kept for tomorrow, and the bank deposit
+  openingCount    String?   // JSON {"100":2,"50":0,...}: notes / coins counted when opening
+  countedBreakdown String?  // JSON: notes / coins counted when closing
+  floatKept       Float?    // cash left in the drawer as tomorrow's float
+  depositAmount   Float?    // counted cash - floatKept = cash to bank in (before costs are deducted)
+  depositedAt     DateTime? // set when the boss confirms the cash was banked in
+  depositedByName String?
+  depositRef      String?   // bank slip / reference no.
+  reconciled      String?   // JSON {"CARD":{"by":"Ah Boss","at":"2026-11-12T..."}}: non-cash methods the boss has checked
+
   payments     Payment[]
+  vouchers     PaymentVoucher[] // cash paid out of this drawer
 }
 
 model Expense {
@@ -351,5 +362,7 @@ model PaymentVoucher {
   supplierInvoiceId String?
   voidedAt          DateTime?            // set when cancelled; amount no longer counts
   voidReason        String?
+  shiftId           String?              // set when the cash came out of the counter drawer
+  shift             CashShift?       @relation(fields: [shiftId], references: [id])
   supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
 }

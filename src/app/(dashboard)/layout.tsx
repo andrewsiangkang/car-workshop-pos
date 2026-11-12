@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { UserProvider } from "@/components/layout/UserProvider";
+import { IdleLogout } from "@/components/layout/IdleLogout";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider user={{ name: user.name, role: user.role }}>
+      <IdleLogout />
       <div className="min-h-screen bg-slate-50">
         <Sidebar />
         <main className="pt-14 md:pl-64 md:pt-0">

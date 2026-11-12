@@ -27,6 +27,17 @@ function getFreePort() {
   });
 }
 
+// 【中文】优先使用固定端口（正式版 3210，演示版 3211），这样手机书签、远程访问地址不会每次启动都变；
+// 端口被占用时才退回随机端口。也可以用环境变量 WORKSHOP_PORT 指定。
+function getPreferredPort() {
+  const want = Number(process.env.WORKSHOP_PORT) || (IS_DEMO ? 3211 : 3210);
+  return new Promise((resolve) => {
+    const s = net.createServer();
+    s.once("error", () => resolve(getFreePort()));
+    s.listen(want, "127.0.0.1", () => s.close(() => resolve(want)));
+  });
+}
+
 function waitForServer(port, timeoutMs = 60000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -80,7 +91,7 @@ async function startServer() {
   const { dataDir, dbPath } = prepareData();
   paths = { dataDir, dbPath };
   const authSecret = getAuthSecret(dataDir);
-  const port = await getFreePort();
+  const port = await getPreferredPort();
   const serverDir = app.isPackaged
     ? path.join(process.resourcesPath, "app-server")
     : path.join(__dirname, "..", ".next", "standalone");

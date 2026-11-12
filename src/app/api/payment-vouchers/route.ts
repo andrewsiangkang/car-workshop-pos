@@ -3,6 +3,7 @@ import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextVoucherNumber, money } from "@/lib/docnumber";
 import { PAYMENT_METHODS } from "@/lib/status";
+import { getOpenShift } from "@/lib/counter";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,13 @@ export async function POST(request: Request) {
     const method = PAYMENT_METHODS.includes(b.method) ? b.method : "CASH";
 
     const v = await prisma.$transaction(async (tx) => {
+      // Cash taken out of the counter drawer: link it to the open counter so the drawer's expected cash goes down.
+      let shiftId: string | null = null;
+      if (method === "CASH" && b.fromDrawer === true) {
+        const shift = await getOpenShift(tx);
+        if (!shift) throw new UserError("The counter is closed. Open the counter first, or untick 'Paid from the counter drawer'.");
+        shiftId = shift.id;
+      }
       const number = await nextVoucherNumber(tx);
       return tx.paymentVoucher.create({
         data: {
@@ -36,6 +44,7 @@ export async function POST(request: Request) {
           reference: text(b.reference, 100) || null,
           notes: text(b.notes, 300) || null,
           createdById: me?.id ?? null,
+          shiftId,
         },
       });
     });

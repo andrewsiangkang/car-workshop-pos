@@ -28,6 +28,9 @@ export default function SetupPage() {
         setLoading(false);
         return;
       }
+      try {
+        localStorage.setItem("workshop-last-active", String(Date.now()));
+      } catch {}
       router.push("/dashboard");
       router.refresh();
     } catch {

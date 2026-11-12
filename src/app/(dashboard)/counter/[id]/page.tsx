@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/documents/PrintButton";
 import { VarianceText } from "@/components/counter/CounterPanel";
+import { DepositPanel } from "@/components/counter/DepositPanel";
+import { getCurrentUser, isOwner } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeSummary, varianceKind } from "@/lib/counter-calc";
+import { ReconcilePanel } from "@/components/counter/ReconcilePanel";
+import { DENOMS, computeSummary, estimatePartsCost, parseBreakdown, parseReconciled, varianceKind, type Breakdown } from "@/lib/counter-calc";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -27,13 +30,59 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
     orderBy: { paidAt: "asc" },
     include: { workOrder: { select: { orderNumber: true, receiptNumber: true, vehicle: { select: { plateNumber: true } } } } },
   });
-  const s = computeSummary(shift.openingFloat, payments);
+  const owner = isOwner(await getCurrentUser());
+
+  // Cash paid out of this drawer, and every other voucher paid while the counter was open.
+  const windowEnd = shift.closedAt ?? new Date();
+  const vouchers = await prisma.paymentVoucher.findMany({
+    where: { voidedAt: null, OR: [{ shiftId: id }, { paidAt: { gte: shift.openedAt, lte: windowEnd } }] },
+    orderBy: { paidAt: "asc" },
+  });
+  const drawerPayouts = vouchers.filter((v) => v.shiftId === id);
+  const otherVouchers = vouchers.filter((v) => v.shiftId !== id);
+  const s = computeSummary(
+    shift.openingFloat,
+    payments,
+    drawerPayouts.reduce((t, v) => t + v.amount, 0)
+  );
   const closed = !!shift.closedAt;
   const expected = shift.expectedCash ?? s.expectedCash;
   const variance = shift.variance ?? 0;
   const kind = varianceKind(variance);
   const otherMethods = s.methods.filter((m) => m.method !== "CASH");
+  const parse = (raw: string | null): Breakdown | null => {
+    if (!raw) return null;
+    try {
+      return parseBreakdown(JSON.parse(raw));
+    } catch {
+      return null;
+    }
+  };
+  const countedBd = parse(shift.countedBreakdown);
+  const openingBd = parse(shift.openingCount);
+  const floatKept = shift.floatKept ?? null;
+  const deposit = shift.depositAmount ?? null;
   const totalCollected = s.methods.reduce((t, m) => t + m.net, 0);
+
+  // Boss-only profit estimate: parts cost of the jobs paid in this session.
+  let partsCost = 0;
+  if (owner && payments.length > 0) {
+    const jobIds = [...new Set(payments.map((p) => p.workOrderId))];
+    const jobs = await prisma.workOrder.findMany({
+      where: { id: { in: jobIds } },
+      select: { id: true, totalAmount: true, items: { where: { type: "PART" }, select: { quantity: true, costPrice: true } } },
+    });
+    partsCost = estimatePartsCost(
+      jobs.map((j) => ({
+        totalAmount: j.totalAmount,
+        paidInShift: payments.filter((p) => p.workOrderId === j.id).reduce((t, p) => t + p.amount, 0),
+        partsCost: j.items.reduce((t, i) => t + i.quantity * i.costPrice, 0),
+      }))
+    );
+  }
+  const paidOutAll = vouchers.reduce((t, v) => t + v.amount, 0);
+  const grossProfit = totalCollected - partsCost;
+  const otherChecks = parseReconciled(shift.reconciled);
 
   return (
     <div>
@@ -96,6 +145,10 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
             <span className="text-slate-500">− Cash Refunds</span>
             <span>{formatCurrency(s.cashRefunds)}</span>
           </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">− Cash Paid Out from Drawer</span>
+            <span>{formatCurrency(drawerPayouts.reduce((t, v) => t + v.amount, 0))}</span>
+          </div>
           <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold">
             <span>Expected Cash in Drawer</span>
             <span>{formatCurrency(expected)}</span>
@@ -123,7 +176,78 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {otherMethods.length > 0 && (
+        {owner && closed && deposit != null && (
+          <div className="mb-6 text-sm">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Bank Deposit</div>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cash Counted</span>
+                <span>{formatCurrency(shift.countedCash ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">− Float Kept in Drawer for Tomorrow</span>
+                <span>{formatCurrency(floatKept ?? 0)}</span>
+              </div>
+              <div className="flex justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base font-bold text-blue-800">
+                <span>Cash to Bank In</span>
+                <span>{formatCurrency(deposit)}</span>
+              </div>
+              <div className="text-xs text-slate-400">Before deducting costs (parts, supplier payments, expenses).</div>
+            </div>
+          </div>
+        )}
+
+        {owner && closed && deposit != null && deposit > 0 && (
+          <DepositPanel
+            shiftId={shift.id}
+            amount={deposit}
+            depositedAt={shift.depositedAt ? shift.depositedAt.toISOString() : null}
+            depositedByName={shift.depositedByName}
+            depositRef={shift.depositRef}
+            canEdit={owner}
+          />
+        )}
+
+        {(countedBd || openingBd) && (
+          <div className="mb-6 text-sm">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Notes &amp; Coins Count</div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b-2 border-slate-200 text-left text-xs uppercase text-slate-500">
+                  <th className="pb-2 font-medium">Note / Coin</th>
+                  {openingBd && <th className="pb-2 text-right font-medium">Opening</th>}
+                  {countedBd && <th className="pb-2 text-right font-medium">Closing</th>}
+                  {countedBd && <th className="pb-2 text-right font-medium">Closing Amount</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {DENOMS.filter((d) => (openingBd?.[d.key] ?? 0) > 0 || (countedBd?.[d.key] ?? 0) > 0).map((d) => (
+                  <tr key={d.key}>
+                    <td className="py-1.5">{d.label}</td>
+                    {openingBd && <td className="py-1.5 text-right">{openingBd[d.key] ?? 0}</td>}
+                    {countedBd && <td className="py-1.5 text-right">{countedBd[d.key] ?? 0}</td>}
+                    {countedBd && <td className="py-1.5 text-right">{formatCurrency(d.value * (countedBd[d.key] ?? 0))}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {otherMethods.length > 0 && owner && closed && (
+          <ReconcilePanel
+            shiftId={shift.id}
+            canEdit
+            lines={otherMethods.map((m) => ({
+              method: m.method,
+              count: m.count,
+              net: m.net,
+              checkedBy: otherChecks[m.method]?.by ?? null,
+              checkedAt: otherChecks[m.method]?.at ?? null,
+            }))}
+          />
+        )}
+        {otherMethods.length > 0 && !(owner && closed) && (
           <div className="mb-6 text-sm">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Other Payments (not in the drawer)</div>
             {otherMethods.map((m) => (
@@ -134,6 +258,57 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
                 <span>{formatCurrency(m.net)}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {drawerPayouts.length > 0 && (
+          <div className="mb-6 text-sm">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Cash Paid Out from Drawer</div>
+            {drawerPayouts.map((v) => (
+              <div key={v.id} className="flex justify-between border-t border-slate-100 py-1.5">
+                <span>
+                  {v.number} · {v.payee}
+                  {v.purpose ? ` · ${v.purpose}` : ""}
+                </span>
+                <span>{formatCurrency(v.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {owner && (
+          <div className="mb-6 text-sm">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Costs &amp; Estimated Profit (boss only)</div>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Total Collected (all methods)</span>
+                <span>{formatCurrency(totalCollected)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">− Estimated Cost of Parts Sold</span>
+                <span>{formatCurrency(partsCost)}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200 pt-1.5 font-semibold">
+                <span>Estimated Gross Profit</span>
+                <span>{formatCurrency(grossProfit)}</span>
+              </div>
+              <div className="mt-3 flex justify-between">
+                <span className="text-slate-500">Money Paid Out by Voucher (all methods)</span>
+                <span>{formatCurrency(paidOutAll)}</span>
+              </div>
+              {otherVouchers.length > 0 && (
+                <div className="text-xs text-slate-400">
+                  {otherVouchers.length} voucher(s) paid by other methods or not from the drawer: {formatCurrency(otherVouchers.reduce((t, v) => t + v.amount, 0))}
+                </div>
+              )}
+              <div className="flex justify-between border-t border-slate-200 pt-1.5 font-semibold">
+                <span>Net Cash Flow (Collected − Paid Out)</span>
+                <span>{formatCurrency(totalCollected - paidOutAll)}</span>
+              </div>
+              <div className="text-xs text-slate-400">
+                Estimates only: parts cost uses each job&apos;s cost prices (prorated by what was paid in this session); labour cost, stock bought earlier and bills not yet paid are not included.
+              </div>
+            </div>
           </div>
         )}
 

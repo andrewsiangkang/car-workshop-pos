@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { UpdatePanel } from "@/components/settings/UpdatePanel";
 import { AutoBackupPanel } from "@/components/settings/AutoBackupPanel";
 import { StaffPanel } from "@/components/settings/StaffPanel";
+import { ConnectPanel } from "@/components/settings/ConnectPanel";
 import { MY_STATES } from "@/lib/my-states";
 import {
   Save,
@@ -14,6 +15,7 @@ import {
   Download,
   HardDrive,
   Users,
+  Smartphone,
 } from "lucide-react";
 
 type ShopForm = {
@@ -71,7 +73,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<"basic" | "tax" | "bank" | "backup" | "staff">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "tax" | "bank" | "backup" | "staff" | "connect">("basic");
   const [backupMsg, setBackupMsg] = useState("");
   const [hasSecret, setHasSecret] = useState(false);
 
@@ -188,7 +190,7 @@ export default function SettingsPage() {
         title="Settings"
         description="Shop details, tax info and backup"
         actions={
-          activeTab !== "backup" && activeTab !== "staff" ? (
+          activeTab !== "backup" && activeTab !== "staff" && activeTab !== "connect" ? (
             <button
               onClick={handleSave}
               disabled={saving}
@@ -219,6 +221,7 @@ export default function SettingsPage() {
           { id: "tax" as const, label: "Tax / e-Invoice", icon: FileText },
           { id: "bank" as const, label: "Bank & Receipt", icon: CreditCard },
           { id: "staff" as const, label: "Staff", icon: Users },
+          { id: "connect" as const, label: "Phone / Tablet", icon: Smartphone },
           { id: "backup" as const, label: "Backup", icon: HardDrive },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -515,6 +518,8 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "staff" && <StaffPanel />}
+
+        {activeTab === "connect" && <ConnectPanel />}
 
         {activeTab === "backup" && (
           <div className="space-y-6">

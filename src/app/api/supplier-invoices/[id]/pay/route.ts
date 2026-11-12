@@ -3,6 +3,7 @@ import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextVoucherNumber, money } from "@/lib/docnumber";
 import { PAYMENT_METHODS } from "@/lib/status";
+import { getOpenShift } from "@/lib/counter";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (remaining <= 0.005) throw new UserError("This invoice is already fully paid");
       if (amount > remaining + 0.005) throw new UserError(`Amount is more than the balance (RM ${remaining.toFixed(2)})`);
 
+      let shiftId: string | null = null;
+      if (method === "CASH" && b.fromDrawer === true) {
+        const shift = await getOpenShift(tx);
+        if (!shift) throw new UserError("The counter is closed. Open the counter first, or untick 'Paid from the counter drawer'.");
+        shiftId = shift.id;
+      }
       const number = await nextVoucherNumber(tx);
       const v = await tx.paymentVoucher.create({
         data: {
@@ -40,6 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           notes: typeof b.notes === "string" ? b.notes.trim().slice(0, 300) || null : null,
           createdById: me?.id ?? null,
           supplierInvoiceId: id,
+          shiftId,
         },
       });
       const paid = money(inv.paidAmount + amount);

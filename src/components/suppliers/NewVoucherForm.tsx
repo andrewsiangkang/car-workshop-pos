@@ -14,6 +14,7 @@ export function NewVoucherForm() {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("CASH");
   const [reference, setReference] = useState("");
+  const [fromDrawer, setFromDrawer] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,7 +25,7 @@ export function NewVoucherForm() {
       const res = await fetch("/api/payment-vouchers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payee, purpose, amount: Number(amount), method, reference }),
+        body: JSON.stringify({ payee, purpose, amount: Number(amount), method, reference, fromDrawer: method === "CASH" && fromDrawer }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -55,6 +56,12 @@ export function NewVoucherForm() {
         </select>
         <input className={input + " sm:col-span-2"} placeholder="Reference / Transaction ID (optional)" value={reference} onChange={(e) => setReference(e.target.value)} />
       </div>
+        {method === "CASH" && (
+          <label className="flex items-center gap-2 text-sm text-slate-700 ">
+            <input type="checkbox" checked={fromDrawer} onChange={(e) => setFromDrawer(e.target.checked)} />
+            Paid from the counter drawer (reduces the drawer cash)
+          </label>
+        )}
       {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       <button type="button" onClick={submit} disabled={busy} className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60">
         {busy ? "Saving..." : "Create Voucher"}
