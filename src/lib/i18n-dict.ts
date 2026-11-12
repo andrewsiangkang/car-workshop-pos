@@ -2287,4 +2287,7 @@ export const ROWS: Array<[string, string, string]> = [
  ["No payments","没有付款","Tiada bayaran"],
  ["Counted by","点钞人","Dikira oleh"],
  ["Checked by (Boss)","核对人（老板）","Disemak oleh (Bos)"],
+ ["Daily Settlement Report","每日结算报告","Laporan Penyelesaian Harian"],
+ ["Total Collected (all methods)","总收款（所有方式）","Jumlah Kutipan (semua kaedah)"],
+ ["Number of Payments","付款笔数","Bilangan Bayaran"],
 ];

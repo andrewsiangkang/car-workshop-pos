@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { PAYMENT_LABEL } from "@/lib/status";
+import { cleanMoneyInput } from "@/lib/money-input";
 import { varianceKind, varianceOf, type ShiftSummary, type VarianceKind } from "@/lib/counter-calc";
 
 export type OpenShift = {
@@ -37,22 +37,13 @@ export function VarianceText({ kind, amount }: { kind: VarianceKind; amount: num
 
 type CounterResult = { id: string; variance?: number };
 
-export function CounterPanel({
-  isOwner,
-  open,
-  summary,
-}: {
-  isOwner: boolean;
-  open: OpenShift | null;
-  summary: ShiftSummary | null; // boss only
-}) {
+export function CounterPanel({ open, summary }: { open: OpenShift | null; summary: ShiftSummary | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [floatIn, setFloatIn] = useState("");
   const [counted, setCounted] = useState("");
   const [notes, setNotes] = useState("");
-  const [done, setDone] = useState<null | { id: string; kind: VarianceKind | "hidden"; amount: number }>(null);
 
   async function post(payload: Record<string, unknown>): Promise<CounterResult | null> {
     setBusy(true);
@@ -66,10 +57,7 @@ export function CounterPanel({
       });
       const data = await res.json();
       if (!res.ok) setError(data.error || "Operation failed");
-      else {
-        result = data;
-        router.refresh();
-      }
+      else result = data;
     } catch {
       setError("Operation failed");
     }
@@ -81,7 +69,7 @@ export function CounterPanel({
     const data = await post({ action: "open", openingFloat: floatIn });
     if (data) {
       setFloatIn("");
-      setDone(null);
+      router.refresh();
     }
   }
 
@@ -92,11 +80,8 @@ export function CounterPanel({
     if (data) {
       setCounted("");
       setNotes("");
-      setDone(
-        isOwner && typeof data.variance === "number"
-          ? { id: data.id, kind: varianceKind(data.variance), amount: data.variance }
-          : { id: data.id, kind: "hidden", amount: 0 }
-      );
+      // The settlement report is generated right away.
+      router.push(`/counter/${data.id}`);
     }
   }
 
@@ -108,22 +93,6 @@ export function CounterPanel({
   return (
     <div className="space-y-6">
       {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-
-      {done && (
-        <div className={`rounded-xl px-5 py-4 text-sm ${done.kind === "hidden" ? "bg-emerald-50 text-emerald-800" : KIND_STYLE[done.kind]}`}>
-          <div className="font-semibold">Counter closed.</div>
-          {done.kind === "hidden" ? (
-            <div className="mt-1">Your cash count has been recorded. The boss will review it.</div>
-          ) : (
-            <div className="mt-1 text-base font-bold">
-              <VarianceText kind={done.kind} amount={done.amount} />
-              <Link href={`/counter/${done.id}`} className="ml-4 text-sm font-medium underline">
-                View settlement
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
 
       {!open && (
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -138,12 +107,11 @@ export function CounterPanel({
             <div>
               <label className="mb-1 block text-xs text-slate-500">Opening Float (RM)</label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
                 inputMode="decimal"
+                autoComplete="off"
                 value={floatIn}
-                onChange={(e) => setFloatIn(e.target.value)}
+                onChange={(e) => setFloatIn(cleanMoneyInput(e.target.value))}
                 placeholder="0.00"
                 className={input}
               />
@@ -178,7 +146,7 @@ export function CounterPanel({
             </div>
           </div>
 
-          {isOwner && summary && (
+          {summary && (
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Cash in Drawer (so far)</h2>
               <div className="space-y-1.5 text-sm">
@@ -231,20 +199,17 @@ export function CounterPanel({
               <div>
                 <label className="mb-1 block text-xs text-slate-500">Cash Counted (RM)</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
                   inputMode="decimal"
+                  autoComplete="off"
                   value={counted}
-                  onChange={(e) => setCounted(e.target.value)}
+                  onChange={(e) => setCounted(cleanMoneyInput(e.target.value))}
                   placeholder="0.00"
                   className={input}
                 />
               </div>
               <div className="min-w-[14rem] flex-1">
-                <label className="mb-1 block text-xs text-slate-500">
-                  {isOwner ? "Notes (required if short or over)" : "Notes (optional)"}
-                </label>
+                <label className="mb-1 block text-xs text-slate-500">Notes (required if short or over)</label>
                 <input
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -256,7 +221,7 @@ export function CounterPanel({
                 Close Counter
               </button>
             </div>
-            {isOwner && liveVariance != null && (
+            {liveVariance != null && (
               <div className={`mt-4 rounded-lg px-4 py-3 text-base font-bold ${KIND_STYLE[varianceKind(liveVariance)]}`}>
                 <VarianceText kind={varianceKind(liveVariance)} amount={liveVariance} />
               </div>

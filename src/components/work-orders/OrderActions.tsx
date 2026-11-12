@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
+import { cleanMoneyInput } from "@/lib/money-input";
 
 const btn =
   "rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50";
@@ -149,12 +150,11 @@ export function OrderActions({
             <div>
               <label className="mb-1 block text-xs text-slate-500">Amount (RM) · Balance {remaining.toFixed(2)}</label>
               <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={remaining}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(cleanMoneyInput(e.target.value))}
                 className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
               />
             </div>
@@ -178,12 +178,12 @@ export function OrderActions({
               <div>
                 <label className="mb-1 block text-xs text-slate-500">Cash Received (RM)</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
                   value={receivedTouched ? received : amount}
                   onChange={(e) => {
-                    setReceived(e.target.value);
+                    setReceived(cleanMoneyInput(e.target.value));
                     setReceivedTouched(true);
                   }}
                   className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"

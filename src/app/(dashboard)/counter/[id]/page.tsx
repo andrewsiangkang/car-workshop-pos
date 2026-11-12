@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/documents/PrintButton";
 import { VarianceText } from "@/components/counter/CounterPanel";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, isOwner } from "@/lib/auth";
 import { computeSummary, varianceKind } from "@/lib/counter-calc";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -17,11 +16,9 @@ const KIND_BOX = {
   balanced: "border-emerald-200 bg-emerald-50 text-emerald-700",
 };
 
-/** Boss only: one counter session - the figures, every payment in it, and a printable settlement slip. */
+/** Daily settlement report for one counter session: totals, cash check (short / over), every payment, printable. */
 export default async function CounterDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!isOwner(await getCurrentUser())) redirect("/counter");
-
   const shift = await prisma.cashShift.findUnique({ where: { id } });
   if (!shift) notFound();
 
@@ -36,6 +33,7 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
   const variance = shift.variance ?? 0;
   const kind = varianceKind(variance);
   const otherMethods = s.methods.filter((m) => m.method !== "CASH");
+  const totalCollected = s.methods.reduce((t, m) => t + m.net, 0);
 
   return (
     <div>
@@ -53,7 +51,7 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
       <div className="print-area paper-a4 mx-auto max-w-3xl bg-white p-8 text-slate-900 shadow-sm print:shadow-none">
         <div className="mb-6 flex items-start justify-between border-b border-slate-200 pb-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Counter Settlement</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Daily Settlement Report</h1>
             <p className="mt-1 text-sm text-slate-500">{closed ? "Closed" : "Still open - figures so far"}</p>
           </div>
           <div className="text-right text-sm">
@@ -67,6 +65,17 @@ export default async function CounterDetailPage({ params }: { params: Promise<{ 
                 {formatDateTime(shift.closedAt)} · {shift.closedByName}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-lg bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Total Collected (all methods)</span>
+            <span className="font-semibold">{formatCurrency(totalCollected)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Number of Payments</span>
+            <span>{s.paymentCount}</span>
           </div>
         </div>
 

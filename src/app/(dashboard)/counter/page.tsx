@@ -14,8 +14,7 @@ const KIND_TEXT = { short: "text-red-600", over: "text-amber-600", balanced: "te
 export default async function CounterPage() {
   const owner = isOwner(await getCurrentUser());
   const open = await getOpenShift();
-  // Takings figures are boss-only: staff never receive the summary.
-  const summary = open && owner ? await summarizeShift(open) : null;
+  const summary = open ? await summarizeShift(open) : null;
   const history = owner
     ? await prisma.cashShift.findMany({
         where: { closedAt: { not: null } },
@@ -29,7 +28,6 @@ export default async function CounterPage() {
       <Header title="Counter" description="Open the counter with a float, take payments, then close and settle the cash at the end of the day." />
 
       <CounterPanel
-        isOwner={owner}
         open={
           open
             ? {

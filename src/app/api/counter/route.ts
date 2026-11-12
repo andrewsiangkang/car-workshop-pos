@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, getCurrentUser, isOwner } from "@/lib/auth";
+import { requireAuth, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { money } from "@/lib/tax";
 import { getOpenShift, summarizeShift } from "@/lib/counter";
@@ -23,9 +23,8 @@ function parseMoney(v: unknown, label: string) {
  *   { action: "open",  openingFloat }
  *   { action: "close", shiftId, countedCash, notes? }
  *
- * Closing compares the cash counted with the cash that should be there.
- * The shortage / overage is only sent back to the boss: staff do a "blind" count, so
- * they cannot work out the day's takings (those figures are boss-only in this app).
+ * Closing compares the cash counted with the cash that should be there and
+ * returns the shortage / overage to whoever closed the counter.
  */
 export async function POST(request: Request) {
   const denied = await requireAuth();
@@ -33,7 +32,6 @@ export async function POST(request: Request) {
   try {
     const me = await getCurrentUser();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const owner = isOwner(me);
     const b = await request.json().catch(() => ({}));
 
     if (b.action === "open") {
@@ -57,9 +55,7 @@ export async function POST(request: Request) {
         }
         const s = await summarizeShift(shift, tx);
         const variance = varianceOf(counted, s.expectedCash);
-        // Only the boss sees the difference, so only the boss is asked to explain it
-        // (asking staff would reveal that the count is wrong).
-        if (owner && Math.abs(variance) >= 0.005 && !notes) {
+        if (Math.abs(variance) >= 0.005 && !notes) {
           throw new UserError("The count does not match. Please write a note explaining the difference.");
         }
         await tx.cashShift.update({
@@ -76,7 +72,6 @@ export async function POST(request: Request) {
         return { id: shift.id, variance, expectedCash: s.expectedCash };
       });
 
-      if (!owner) return NextResponse.json({ ok: true, id: result.id });
       return NextResponse.json({
         ok: true,
         id: result.id,
