@@ -39,7 +39,8 @@ function readCash(b: Record<string, unknown>, breakdownKey: string, totalKey: st
  * in the drawer for tomorrow (costs are not deducted).
 
  * Closing compares the cash counted with the cash that should be there and
- * returns the shortage / overage to whoever closed the counter.
+ * returns the shortage / overage to whoever closed the counter. The counter can always be
+ * closed, even when the cash is short or over (a note is optional).
  */
 export async function POST(request: Request) {
   const denied = await requireAuth();
@@ -83,9 +84,7 @@ export async function POST(request: Request) {
         const depositAmount = depositOf(counted, floatKept);
         const s = await summarizeShift(shift, tx);
         const variance = varianceOf(counted, s.expectedCash);
-        if (Math.abs(variance) >= 0.005 && !notes) {
-          throw new UserError("The count does not match. Please write a note explaining the difference.");
-        }
+        // A shortage / overage never blocks closing: it is recorded on the settlement (with the note, if one was written).
         await tx.cashShift.update({
           where: { id: shift.id },
           data: {

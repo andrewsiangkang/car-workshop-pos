@@ -83,8 +83,28 @@ export default function LanguageProvider() {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
     const nativeAlert = window.alert.bind(window);
     const nativeConfirm = window.confirm.bind(window);
-    window.alert = (m?: unknown) => nativeAlert(translateText(String(m ?? ""), lang));
-    window.confirm = (m?: string) => nativeConfirm(translateText(String(m ?? ""), lang));
+    // A native pop-up can leave the desktop app without keyboard focus: afterwards no text box accepts typing.
+    // Ask the app window to take focus back, and put the cursor back where it was.
+    const restoreFocus = (before: Element | null) => {
+      try {
+        (window as unknown as { workshopWindow?: { refocus: () => Promise<boolean> } }).workshopWindow?.refocus();
+      } catch {}
+      window.setTimeout(() => {
+        window.focus();
+        if (before instanceof HTMLElement && document.contains(before)) before.focus();
+      }, 50);
+    };
+    window.alert = (m?: unknown) => {
+      const before = document.activeElement;
+      nativeAlert(translateText(String(m ?? ""), lang));
+      restoreFocus(before);
+    };
+    window.confirm = (m?: string) => {
+      const before = document.activeElement;
+      const ok = nativeConfirm(translateText(String(m ?? ""), lang));
+      restoreFocus(before);
+      return ok;
+    };
 
     let scheduled = false;
     let busy = false;

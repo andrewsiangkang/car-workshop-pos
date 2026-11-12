@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld("workshopBackup", {
   restore: (name) => ipcRenderer.invoke("backup:restore", name),
 });
 
+// After a native alert / confirm, Windows can leave the page without keyboard focus (text boxes cannot be typed in).
+contextBridge.exposeInMainWorld("workshopWindow", {
+  refocus: () => ipcRenderer.invoke("window:refocus"),
+});
+
 contextBridge.exposeInMainWorld("workshopUpdate", {
   check: () => ipcRenderer.invoke("update:check"),
   open: (url) => ipcRenderer.invoke("update:open", url),

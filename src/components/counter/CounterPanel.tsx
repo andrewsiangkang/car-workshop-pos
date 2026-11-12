@@ -76,6 +76,7 @@ export function CounterPanel({
   const [closeMode, setCloseMode] = useState<"count" | "total">("count");
   const [closeCounts, setCloseCounts] = useState<CountInputs>({});
   const [keepIn, setKeepIn] = useState<string | null>(null); // null = same as today's opening float
+  const [confirming, setConfirming] = useState(false); // second tap on Close Counter (replaces the browser pop-up)
 
   async function post(payload: Record<string, unknown>): Promise<CounterResult | null> {
     setBusy(true);
@@ -112,7 +113,12 @@ export function CounterPanel({
 
   async function closeCounter() {
     if (!open) return;
-    if (!window.confirm("Close the counter now? This cannot be undone.")) return;
+    // Two taps instead of a browser pop-up: pop-ups can leave the desktop app's text boxes unable to type.
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setConfirming(false);
     const data = await post({
       action: "close",
       shiftId: open.id,
@@ -138,7 +144,14 @@ export function CounterPanel({
       : counted.trim() === ""
         ? null
         : Number(counted);
-  const keepNum = keepIn === null ? open?.openingFloat ?? 0 : keepIn.trim() === "" ? 0 : Number(keepIn);
+  // Float kept for tomorrow: the opening float, but never more than the cash actually counted
+  // (otherwise a short drawer made it impossible to close).
+  const defaultKeep = !open
+    ? 0
+    : countedNum != null && Number.isFinite(countedNum)
+      ? Math.min(open.openingFloat, countedNum)
+      : open.openingFloat;
+  const keepNum = keepIn === null ? defaultKeep : keepIn.trim() === "" ? 0 : Number(keepIn);
   const keepTooMuch = isOwner && countedNum != null && Number.isFinite(keepNum) && keepNum > countedNum + 0.005;
   const deposit = isOwner && countedNum != null && Number.isFinite(keepNum) && !keepTooMuch ? depositOf(countedNum, keepNum) : null;
   const openTotal = openMode === "count" ? countsTotal(openCounts) : Number(floatIn || 0);
@@ -317,7 +330,7 @@ export function CounterPanel({
                     type="text"
                     inputMode="decimal"
                     autoComplete="off"
-                    value={keepIn === null ? String(open.openingFloat) : keepIn}
+                    value={keepIn === null ? String(defaultKeep) : keepIn}
                     onChange={(e) => setKeepIn(cleanMoneyInput(e.target.value))}
                     placeholder="0.00"
                     className={input}
@@ -340,10 +353,13 @@ export function CounterPanel({
 
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div className="min-w-[14rem] flex-1">
-                <label className="mb-1 block text-xs text-slate-500">Notes (required if short or over)</label>
+                <label className="mb-1 block text-xs text-slate-500">Notes (optional, e.g. why the cash is short or over)</label>
                 <input
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    setConfirming(false);
+                  }}
                   maxLength={500}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
                 />
@@ -351,11 +367,25 @@ export function CounterPanel({
               <button
                 disabled={busy || countedNum == null || keepTooMuch || !Number.isFinite(keepNum)}
                 onClick={closeCounter}
-                className={`${btn} bg-violet-600 text-white hover:bg-violet-700`}
+                className={`${btn} ${confirming ? "bg-red-600 hover:bg-red-700" : "bg-violet-600 hover:bg-violet-700"} text-white`}
               >
-                Close Counter
+                {confirming ? "Tap again to close the counter" : "Close Counter"}
               </button>
+              {confirming && (
+                <button type="button" onClick={() => setConfirming(false)} className={`${btn} border border-slate-300 text-slate-700`}>
+                  Cancel
+                </button>
+              )}
             </div>
+            {confirming && (
+              <div className="mt-2 text-sm text-slate-500">
+                {liveVariance != null && varianceKind(liveVariance) !== "balanced"
+                  ? "The cash does not match the expected amount. It will be recorded on the settlement. "
+                  : ""}
+                This cannot be undone.
+              </div>
+            )}
+            {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           </div>
         </>
       )}

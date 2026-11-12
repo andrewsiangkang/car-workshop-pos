@@ -147,7 +147,9 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
   - **手机 / 平板连接**：Settings → Phone / Tablet 显示这台电脑的地址（例如 http://192.168.1.5:端口）和二维码，手机连同一个 Wi-Fi 即可打开。
 - **v0.2.6 自动登出**：5 分钟没有任何操作（鼠标、键盘、触屏、滚动）就自动登出；最后 30 秒弹出提醒，可点 Stay Logged In 继续。多个窗口共用同一个计时，电脑睡眠后醒来会立刻登出。登出不会关柜，也不影响已保存的数据。时间在 `src/lib/idle.ts` 修改。
 - **v0.2.7 远程开单（店外使用）**：用 Tailscale（免费私人网络）。电脑和手机都装 Tailscale 并登录同一个账号，Settings → Phone / Tablet 会显示电脑的 Tailscale 地址和二维码，在外面打开手机上的 Tailscale 再用浏览器访问就能开单。程序现在用固定端口（正式版 3210，演示版 3211，被占用时才用随机端口），所以地址不会每次启动都变；也可以用环境变量 `WORKSHOP_PORT` 指定。**不要**在路由器上做端口转发，也不要放到公共隧道上。
-- **v0.3.1 电子发票**：发票页可用顾客 NRIC / 护照 / SSM 向 LHDN 查 TIN（Find customer TIN by NRIC），保存后点 Submit to LHDN 即用该买家资料开电子发票（之后的 Credit Note 也用同一买家）。提交并拿到 Long ID 后，发票和收据底部会显示 **LHDN 验证二维码**，顾客扫码直接打开 LHDN MyInvois 上的这张电子发票。用买家资料开单的发票不会并入每月合并电子发票，月结页会列出。旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。
+- **v0.3.2 电子发票**：发票页可用顾客 NRIC / 护照 / SSM 向 LHDN 查 TIN（Find customer TIN by NRIC），保存后点 Submit to LHDN 即用该买家资料开电子发票（之后的 Credit Note 也用同一买家）。提交并拿到 Long ID 后，发票和收据底部会显示 **LHDN 验证二维码**，顾客扫码直接打开 LHDN MyInvois 上的这张电子发票。用买家资料开单的发票不会并入每月合并电子发票，月结页会列出。旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。
+  - 修复：关柜时现金**少了或多了**也能关柜（备注改为选填，差额照样记在结算单上）；老板的“留作明天的备用金”默认不会超过点出来的现金（以前现金少于开柜备用金时，按钮会被锁住）。关柜改为点两下确认，不再弹出浏览器对话框。
+  - 修复：桌面版弹出确认 / 提示框后，输入框无法打字的问题（弹窗关闭后自动把键盘焦点还给窗口和原来的输入框）。
 - 老板可在 Counter 页查看历史结算记录。
 - 所有金额框都是手动输入，没有上下箭头。
 - 旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。

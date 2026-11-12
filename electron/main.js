@@ -213,6 +213,17 @@ async function checkForUpdates() {
   if (result.response === 0 && r.url) shell.openExternal(r.url);
 }
 
+ipcMain.handle("window:refocus", (event) => {
+  const u = (event.senderFrame && event.senderFrame.url) || "";
+  if (!u.startsWith("http://127.0.0.1:" + currentPort + "/")) return false;
+  if (win && !win.isDestroyed()) {
+    win.blur();
+    win.focus();
+    win.webContents.focus();
+  }
+  return true;
+});
+
 ipcMain.handle("update:check", async (event) => {
   const u = (event.senderFrame && event.senderFrame.url) || "";
   if (!u.startsWith("http://127.0.0.1:" + currentPort + "/")) return { error: "forbidden" };
