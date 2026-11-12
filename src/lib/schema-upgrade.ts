@@ -61,6 +61,8 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "WorkOrder", column: "buyerStateCode", ddl: "TEXT" },
   // v0.3.3 — keep submission UID so status can be polled again after page refresh
   { table: "WorkOrder", column: "submissionUid", ddl: "TEXT" },
+  // v0.3.11 — owner-editable document print templates
+  { table: "ShopProfile", column: "documentSettings", ddl: "TEXT" },
 ];
 
 // 【中文】新版本新增的表（含索引）。

@@ -53,7 +53,7 @@ Database starts completely empty.
 | 文件 | 说明 |
 |------|------|
 | [`docs/REPORT-v0.3.3.md`](./docs/REPORT-v0.3.3.md) | 历史评估（v0.3.3） |
-| [`docs/AUDIT-v0.3.10.md`](./docs/AUDIT-v0.3.10.md) | **最新审计报告 v0.3.10** |
+| [`docs/AUDIT-v0.3.12.md`](./docs/AUDIT-v0.3.12.md) | **最新审计报告 v0.3.12** |
 | [`docs/AUDIT-v0.3.6.md`](./docs/AUDIT-v0.3.6.md) | v0.3.6 安全修复记录 |
 | [`docs/ROADMAP-v0.3.4.md`](./docs/ROADMAP-v0.3.4.md) | 任务清单（含 v0.3.5 已完成项） |
 | [`docs/car-workshop-pos-audit-v0.3.4.pdf`](./docs/car-workshop-pos-audit-v0.3.4.pdf) | 审计报告 PDF · v0.3.4 |
@@ -63,7 +63,7 @@ Database starts completely empty.
 
 ## Features
 
-- **v0.3.10 hardening** — SQLite-backed login throttling, expanded audit events, integer-sen calculation primitives and production MyInvois submission lock until XAdES signing is available. See `docs/AUDIT-v0.3.10.md`.
+- **v0.3.12 hardening** — SQLite-backed login throttling, expanded audit events, integer-sen calculation primitives and production MyInvois submission lock until XAdES signing is available. See `docs/AUDIT-v0.3.12.md`.
 
 
 - Work Orders with Quotation / Invoice / Receipt
@@ -180,9 +180,15 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
 
 
 
-**Current source version: v0.3.10**
+**Current source version: v0.3.12**
 
 
 ## Latest build fix
 
-See [Chinese build fix report v0.3.10](./docs/AUDIT-v0.3.10-ZH.md).
+See [Chinese build fix report v0.3.12](./docs/AUDIT-v0.3.12-ZH.md).
+
+
+## v0.3.12
+- Owner-editable quotation, invoice and receipt print templates.
+- Receipt default print size is A5 landscape.
+- Walk-in first: service reminders are follow-up reminders only, not appointment bookings.

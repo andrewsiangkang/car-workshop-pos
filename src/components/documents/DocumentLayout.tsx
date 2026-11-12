@@ -17,6 +17,7 @@ export type DocData = {
   date: string | Date;
   shop: {
     name: string;
+    logoUrl?: string | null;
     address?: string | null;
     phone?: string | null;
     email?: string | null;
@@ -65,6 +66,17 @@ export type DocData = {
   buyerRequestUrl?: string | null;
   submissionUid?: string | null;
   eInvoiceStatus?: string | null;
+  documentSettings?: {
+    quotation?: { heading?: string; footer?: string; showSignature?: boolean };
+    invoice?: { heading?: string; footer?: string; showSignature?: boolean };
+    receipt?: { heading?: string; footer?: string; showSignature?: boolean; paper?: "A5_LANDSCAPE" | "A5_PORTRAIT" };
+    showCustomer?: boolean;
+    showVehicle?: boolean;
+    logoPosition?: "LEFT" | "CENTER" | "RIGHT"; logoWidth?: number; fontSize?: "SMALL" | "NORMAL" | "LARGE";
+    showShopAddress?: boolean; showShopPhone?: boolean; showShopEmail?: boolean; showTaxIds?: boolean;
+    showDocumentNumber?: boolean; showJobNumber?: boolean; showDocumentDate?: boolean;
+    showItemQuantity?: boolean; showItemUnitPrice?: boolean; showPaymentQr?: boolean;
+  };
 };
 
 const PAY_LABEL: Record<string, string> = { CASH: "Cash", CARD: "Card", TRANSFER: "Bank Transfer", TNG: "Touch 'n Go", OTHER: "Other" };
@@ -76,49 +88,49 @@ const TYPE_TITLE = {
 };
 
 export function DocumentLayout({ data }: { data: DocData }) {
-  const title = TYPE_TITLE[data.type];
+  const settings = data.documentSettings || {};
+  const typeSettings = settings[data.type] || {};
+  const title = typeSettings.heading?.trim() || TYPE_TITLE[data.type];
+  const showSignature = typeSettings.showSignature ?? data.type !== "quotation";
+  const receiptPaper = data.type === "receipt" ? settings.receipt?.paper : undefined;
+  const isReceiptLandscape = data.type === "receipt" && (receiptPaper || "A5_LANDSCAPE") === "A5_LANDSCAPE";
+  const logoPosition = settings.logoPosition || "LEFT";
+  const logoWidth = [80, 120, 160, 200].includes(settings.logoWidth || 120) ? settings.logoWidth || 120 : 120;
+  const fontScale = settings.fontSize === "SMALL" ? "0.9rem" : settings.fontSize === "LARGE" ? "1.08rem" : "1rem";
 
   return (
-    <div className={`print-area mx-auto bg-white p-8 text-slate-900 shadow-sm print:shadow-none ${data.type === "receipt" ? "paper-a5 max-w-xl" : "paper-a4 max-w-3xl"}`}>
+    <div className={`print-area mx-auto bg-white p-8 text-slate-900 shadow-sm print:shadow-none ${data.type === "receipt" ? `paper-a5 ${isReceiptLandscape ? "paper-a5-landscape" : "paper-a5-portrait"} max-w-4xl` : "paper-a4 max-w-3xl"}`} style={{ fontSize: fontScale }}>
       {/* Header */}
       <div className="mb-8 flex items-start justify-between border-b border-slate-200 pb-6">
-        <div>
+        <div className={`min-w-0 ${logoPosition === "CENTER" ? "text-center" : logoPosition === "RIGHT" ? "text-right" : "text-left"}`}>
+          {data.shop.logoUrl && <img src={data.shop.logoUrl} alt="Workshop logo" style={{ width: `${logoWidth}px`, maxHeight: "90px", objectFit: "contain", marginLeft: logoPosition === "CENTER" ? "auto" : logoPosition === "RIGHT" ? "auto" : "0", marginRight: logoPosition === "CENTER" ? "auto" : logoPosition === "LEFT" ? "auto" : "0" }} className="mb-2" />}
           <h1 className="text-2xl font-bold tracking-tight">{data.shop.name}</h1>
-          {data.shop.address && (
+          {settings.showShopAddress !== false && data.shop.address && (
             <p className="mt-1 text-sm text-slate-600 whitespace-pre-line">
               {data.shop.address}
             </p>
           )}
           <div className="mt-2 space-y-0.5 text-sm text-slate-600">
-            {data.shop.phone && <p>Tel: {data.shop.phone}</p>}
-            {data.shop.email && <p>Email: {data.shop.email}</p>}
-            {data.shop.tin && <p>TIN: {data.shop.tin}</p>}
-            {data.shop.brn && <p>BRN: {data.shop.brn}</p>}
-            {data.shop.sstNumber && data.shop.sstNumber.toUpperCase() !== "NA" && <p>SST No: {data.shop.sstNumber}</p>}
+            {settings.showShopPhone !== false && data.shop.phone && <p>Tel: {data.shop.phone}</p>}
+            {settings.showShopEmail !== false && data.shop.email && <p>Email: {data.shop.email}</p>}
+            {settings.showTaxIds !== false && data.shop.tin && <p>TIN: {data.shop.tin}</p>}
+            {settings.showTaxIds !== false && data.shop.brn && <p>BRN: {data.shop.brn}</p>}
+            {settings.showTaxIds !== false && data.shop.sstNumber && data.shop.sstNumber.toUpperCase() !== "NA" && <p>SST No: {data.shop.sstNumber}</p>}
           </div>
         </div>
         <div className="text-right">
           <div className="text-lg font-bold text-blue-700">{title}</div>
           <div className="mt-2 text-sm">
-            <div>
-              <span className="text-slate-500">No.: </span>
-              <span className="font-semibold">{data.docNumber}</span>
-            </div>
-            <div>
-              <span className="text-slate-500">Job: </span>
-              {data.orderNumber}
-            </div>
-            <div>
-              <span className="text-slate-500">Date: </span>
-              {formatDate(data.date)}
-            </div>
+            {settings.showDocumentNumber !== false && <div><span className="text-slate-500">No.: </span><span className="font-semibold">{data.docNumber}</span></div>}
+            {settings.showJobNumber !== false && <div><span className="text-slate-500">Job: </span>{data.orderNumber}</div>}
+            {settings.showDocumentDate !== false && <div><span className="text-slate-500">Date: </span>{formatDate(data.date)}</div>}
           </div>
         </div>
       </div>
 
       {/* Customer & Vehicle */}
-      <div className="mb-6 grid grid-cols-2 gap-6 text-sm">
-        <div>
+      {(settings.showCustomer !== false || settings.showVehicle !== false) && <div className="mb-6 grid grid-cols-2 gap-6 text-sm">
+        {settings.showCustomer !== false && <div>
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Customer
           </div>
@@ -127,8 +139,8 @@ export function DocumentLayout({ data }: { data: DocData }) {
           {data.customer.tin && (
             <div className="text-slate-600">TIN: {data.customer.tin}</div>
           )}
-        </div>
-        <div>
+        </div>}
+        {settings.showVehicle !== false && <div>
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Vehicle
           </div>
@@ -142,16 +154,16 @@ export function DocumentLayout({ data }: { data: DocData }) {
               Mileage: {data.vehicle.mileage.toLocaleString()} km
             </div>
           )}
-        </div>
-      </div>
+        </div>}
+      </div>}
 
       {/* Items table */}
       <table className="mb-6 w-full text-sm">
         <thead>
           <tr className="border-b-2 border-slate-200 text-left text-xs uppercase text-slate-500">
             <th className="pb-2 font-medium">Description</th>
-            <th className="pb-2 text-right font-medium">Qty</th>
-            <th className="pb-2 text-right font-medium">Unit Price</th>
+            {settings.showItemQuantity !== false && <th className="pb-2 text-right font-medium">Qty</th>}
+            {settings.showItemUnitPrice !== false && <th className="pb-2 text-right font-medium">Unit Price</th>}
             <th className="pb-2 text-right font-medium">Amount</th>
           </tr>
         </thead>
@@ -164,10 +176,8 @@ export function DocumentLayout({ data }: { data: DocData }) {
                   <span className="ml-2 text-xs text-slate-400">Labor</span>
                 )}
               </td>
-              <td className="py-2.5 text-right">{item.quantity}</td>
-              <td className="py-2.5 text-right">
-                {formatCurrency(item.unitPrice)}
-              </td>
+              {settings.showItemQuantity !== false && <td className="py-2.5 text-right">{item.quantity}</td>}
+              {settings.showItemUnitPrice !== false && <td className="py-2.5 text-right">{formatCurrency(item.unitPrice)}</td>}
               <td className="py-2.5 text-right font-medium">
                 {formatCurrency(item.total)}
               </td>
@@ -272,7 +282,7 @@ export function DocumentLayout({ data }: { data: DocData }) {
             {data.shop.bankAccount && <div>Account: {data.shop.bankAccount}</div>}
             <div className="mt-2 text-xs text-slate-500">Please use invoice number as payment reference.</div>
           </div>
-          {data.shop.paymentQrUrl && (
+          {settings.showPaymentQr !== false && data.shop.paymentQrUrl && (
             <img src={data.shop.paymentQrUrl} alt="Payment QR" className="h-28 w-28 rounded border border-slate-200 object-contain bg-white" />
           )}
         </div>
@@ -336,12 +346,12 @@ export function DocumentLayout({ data }: { data: DocData }) {
       )}
 
       {/* Signature / e-Quotation notice */}
-      {data.type === "quotation" ? (
+      {showSignature && data.type === "quotation" ? (
         <div className="mt-10 rounded-lg border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-600">
           <p className="font-semibold text-slate-800">This is a computer-generated quotation.</p>
           <p className="mt-1">No signature is required.</p>
         </div>
-      ) : (
+      ) : showSignature ? (
         <div className="mt-12">
           <p className="mb-6 text-center text-xs text-slate-500">
             Signatures below confirm that both parties have reviewed and agreed to the terms of this document, protecting the interests of both sides.
@@ -361,18 +371,18 @@ export function DocumentLayout({ data }: { data: DocData }) {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Footer */}
       <div className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
         {data.type === "quotation" && (
-          <p>This quotation is valid for 7 days. Prices may be adjusted based on actual materials used.</p>
+          <p>{typeSettings.footer || "This quotation is valid for 7 days. Prices may be adjusted based on actual materials used."}</p>
         )}
         {data.type === "invoice" && (
-          <p>Please make payment within 7 days. Thank you for your business!</p>
+          <p>{typeSettings.footer || "Please make payment within 7 days. Thank you for your business!"}</p>
         )}
         {data.type === "receipt" && (
-          <p>{data.footer || "Thank you for your business. We look forward to serving you again!"}</p>
+          <p>{typeSettings.footer || data.footer || "Thank you for your business. We look forward to serving you again!"}</p>
         )}
       </div>
     </div>

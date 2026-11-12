@@ -11,3 +11,9 @@
 | [ROADMAP-v0.3.4.md](./ROADMAP-v0.3.4.md) | 历史路线图 |
 
 **当前产品源码版本：v0.3.10**
+
+
+## v0.3.11
+- Added owner-only document template editor for quotation, invoice and receipt headings, footer text and signature sections.
+- Receipt defaults to A5 landscape; owner can switch to A5 portrait.
+- Service reminder design remains walk-in friendly: reminders are due-date / mileage follow-ups only; no appointment booking workflow is required.

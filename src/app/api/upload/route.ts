@@ -33,7 +33,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "File is not a valid image" }, { status: 400 });
     }
 
-    const filename = `payment-qr-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${kind.ext}`;
+    const purpose = form.get("purpose") === "logo" ? "workshop-logo" : "payment-qr";
+    const filename = `${purpose}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${kind.ext}`;
     const dir = uploadDir();
     await mkdir(dir, { recursive: true });
     await writeFile(path.join(dir, filename), buffer);

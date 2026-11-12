@@ -240,6 +240,7 @@ model ShopProfile {
   paymentQrUrl  String?  // URL or path for payment QR image
   logoUrl       String?
   receiptFooter String?  // thank you message
+  documentSettings String? // owner-editable quotation, invoice and receipt print layout settings (JSON)
   updatedAt     DateTime @updatedAt
 }
 

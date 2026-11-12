@@ -86,6 +86,7 @@ export async function PUT(request: Request) {
       bankAccount: str(body.bankAccount, 50),
       paymentQrUrl: safeImageUrl(body.paymentQrUrl),
       receiptFooter: str(body.receiptFooter, 1000),
+      documentSettings: typeof body.documentSettings === "string" ? body.documentSettings.slice(0, 12000) : existing?.documentSettings ?? null,
     };
 
     const shop = existing

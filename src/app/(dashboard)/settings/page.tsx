@@ -6,6 +6,7 @@ import { UpdatePanel } from "@/components/settings/UpdatePanel";
 import { AutoBackupPanel } from "@/components/settings/AutoBackupPanel";
 import { StaffPanel } from "@/components/settings/StaffPanel";
 import { ConnectPanel } from "@/components/settings/ConnectPanel";
+import { DocumentTemplatePanel } from "@/components/settings/DocumentTemplatePanel";
 import { MY_STATES } from "@/lib/my-states";
 import { AUTOMOTIVE_MSIC_CODES } from "@/data/msic-codes";
 import {
@@ -76,7 +77,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<"basic" | "tax" | "bank" | "backup" | "staff" | "connect">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "tax" | "bank" | "documents" | "backup" | "staff" | "connect">("basic");
   const [backupMsg, setBackupMsg] = useState("");
   const [hasSecret, setHasSecret] = useState(false);
   const [msicSearch, setMsicSearch] = useState("");
@@ -199,7 +200,7 @@ export default function SettingsPage() {
         title="Settings"
         description="Shop details, tax info and backup"
         actions={
-          activeTab !== "backup" && activeTab !== "staff" && activeTab !== "connect" ? (
+          activeTab !== "backup" && activeTab !== "staff" && activeTab !== "connect" && activeTab !== "documents" ? (
             <button
               onClick={handleSave}
               disabled={saving}
@@ -229,6 +230,7 @@ export default function SettingsPage() {
           { id: "basic" as const, label: "Basic Info", icon: Building2 },
           { id: "tax" as const, label: "Tax / e-Invoice", icon: FileText },
           { id: "bank" as const, label: "Bank & Receipt", icon: CreditCard },
+          { id: "documents" as const, label: "Document Templates", icon: FileText },
           { id: "staff" as const, label: "Staff", icon: Users },
           { id: "connect" as const, label: "Phone / Tablet", icon: Smartphone },
           { id: "backup" as const, label: "Backup", icon: HardDrive },
@@ -582,6 +584,7 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {activeTab === "documents" && <DocumentTemplatePanel />}
         {activeTab === "staff" && <StaffPanel />}
 
         {activeTab === "connect" && <ConnectPanel />}

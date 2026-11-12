@@ -58,6 +58,7 @@ export async function loadDocData(
       date,
       shop: {
         name: shop?.name || "My Workshop",
+        logoUrl: shop?.logoUrl,
         address: fullAddress(shop),
         phone: shop?.phone,
         email: shop?.email,
@@ -106,6 +107,7 @@ export async function loadDocData(
         paidAt: p.paidAt,
       })),
       footer: shop?.receiptFooter,
+      documentSettings: (() => { try { return shop?.documentSettings ? JSON.parse(shop.documentSettings) : undefined; } catch { return undefined; } })(),
       eInvoice: order.eInvoiceUuid
         ? { uuid: order.eInvoiceUuid, longId: order.eInvoiceLongId, portal: portalUrl(shop?.myInvoisSandbox ?? true) }
         : null,

@@ -46,13 +46,19 @@ body {
   .paper-a5 {
     page: a5;
   }
+  .paper-a5-landscape { page: a5-landscape; width: 100%; }
+  .paper-a5-portrait { page: a5; }
   @page a4 {
     size: A4;
     margin: 15mm;
   }
   @page a5 {
-    size: A5;
-    margin: 10mm;
+    size: A5 portrait;
+    margin: 8mm;
+  }
+  @page a5-landscape {
+    size: A5 landscape;
+    margin: 7mm;
   }
 }
 
