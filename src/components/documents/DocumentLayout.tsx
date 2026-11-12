@@ -61,8 +61,6 @@ export type DocData = {
   }>;
   footer?: string | null;
   eInvoice?: { uuid: string; longId?: string | null; portal?: string } | null;
-  /** QR link for the customer to send their own e-Invoice details (v0.2.9). */
-  eInvoiceRequest?: { url: string; received: boolean } | null;
 };
 
 const PAY_LABEL: Record<string, string> = { CASH: "Cash", CARD: "Card", TRANSFER: "Bank Transfer", TNG: "Touch 'n Go", OTHER: "Other" };
@@ -302,25 +300,6 @@ export function DocumentLayout({ data }: { data: DocData }) {
             <div className="mt-2 text-slate-400">
               Scan QR to verify on LHDN MyInvois
             </div>
-          </div>
-        </div>
-      )}
-
-      {(data.type === "invoice" || data.type === "receipt") && data.eInvoiceRequest && !data.eInvoice && (
-        <div className="mt-8 flex items-center gap-5 rounded-lg border border-slate-200 p-4 break-inside-avoid">
-          <img
-            src={"/api/qr?text=" + encodeURIComponent(data.eInvoiceRequest.url)}
-            alt="e-Invoice request QR"
-            width={110}
-            height={110}
-            className="shrink-0 rounded border border-slate-200"
-          />
-          <div className="text-xs text-slate-600">
-            <div className="mb-1 text-sm font-semibold text-slate-800">Need an e-Invoice? 需要电子发票？Perlukan e-Invois?</div>
-            <div>Scan this QR code with your phone and fill in your TIN / ID / address.</div>
-            <div>用手机扫描二维码，填写你的 TIN / 证件 / 地址。</div>
-            <div>Imbas kod QR dan isi TIN / ID / alamat anda.</div>
-            <div className="mt-1 text-slate-400">Connect to the shop Wi-Fi first. 请先连上本店 Wi-Fi。</div>
           </div>
         </div>
       )}

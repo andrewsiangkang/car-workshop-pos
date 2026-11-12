@@ -22,13 +22,11 @@ export function EInvoiceForm({
   initialUuid,
   initialLongId,
   buyer,
-  requestUrl,
 }: {
   orderId: string;
   initialUuid?: string | null;
   initialLongId?: string | null;
   buyer?: BuyerRequest | null;
-  requestUrl?: string | null;
 }) {
   const router = useRouter();
   const [uuid, setUuid] = useState(initialUuid || "");
@@ -38,7 +36,6 @@ export function EInvoiceForm({
   const [msg, setMsg] = useState("");
   const [submissionUID, setSubmissionUID] = useState("");
 
-  const [copied, setCopied] = useState(false);
 
   // Look up the customer's TIN at LHDN from their NRIC, then use it for this invoice.
   const [idType, setIdType] = useState(buyer?.idType || "NRIC");
@@ -89,17 +86,6 @@ export function EInvoiceForm({
     }
     setFinding(false);
   }
-  async function copyLink() {
-    if (!requestUrl) return;
-    try {
-      await navigator.clipboard.writeText(requestUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   async function save() {
     setSaving(true);
     setMsg("");
@@ -167,37 +153,15 @@ export function EInvoiceForm({
       <p className="mb-3 text-xs text-slate-500">
         Fill UUID & Long ID manually, or click Submit to send to LHDN (requires Client ID/Secret in Settings and a digital certificate for production).
       </p>
-      {!uuid && (
-        <div className={`mb-4 rounded-lg border p-3 text-sm ${buyer ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
-          {buyer ? (
-            <>
-              <div className="mb-1 font-semibold text-emerald-800">Customer sent their e-Invoice details (by QR)</div>
-              <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 text-slate-700 sm:grid-cols-2">
-                <div>Name: {buyer.name}</div>
-                <div>TIN: {buyer.tin}</div>
-                <div>{buyer.idType}: {buyer.idNo}</div>
-                <div>Phone: {buyer.phone || "-"}</div>
-                <div>Email: {buyer.email || "-"}</div>
-                <div className="sm:col-span-2">
-                  Address: {buyer.address}, {buyer.postcode} {buyer.city}, {buyer.state}
-                </div>
-              </div>
-              <div className="mt-1 text-xs text-slate-500">Sent {buyer.requestedAt}. “Submit to LHDN” below uses these details.</div>
-            </>
-          ) : (
-            <div className="text-slate-600">
-              Waiting for the customer to scan the QR code on the invoice / receipt and fill in their details.
-              Without it, the invoice is reported in the monthly consolidated e-Invoice.
-            </div>
-          )}
-          {requestUrl && (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span className="break-all">{requestUrl}</span>
-              <button type="button" onClick={copyLink} className="rounded border border-slate-300 bg-white px-2 py-1 text-slate-700">
-                {copied ? "Copied ✓" : "Copy link"}
-              </button>
-            </div>
-          )}
+      {!uuid && buyer && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+          <div className="mb-1 font-semibold text-emerald-800">Buyer details saved for this invoice</div>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 text-slate-700 sm:grid-cols-2">
+            <div>Name: {buyer.name}</div>
+            <div>TIN: {buyer.tin}</div>
+            <div>{buyer.idType}: {buyer.idNo}</div>
+          </div>
+          <div className="mt-1 text-xs text-slate-500">“Submit to LHDN” below uses these details.</div>
         </div>
       )}
       {!uuid && (

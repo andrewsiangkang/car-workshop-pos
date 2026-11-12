@@ -11,8 +11,6 @@ export function fullAddress(
   return [shop.address, [shop.postcode, shop.city].filter(Boolean).join(" "), state].filter(Boolean).join("\n") || null;
 }
 import type { DocData } from "@/components/documents/DocumentLayout";
-import { headers } from "next/headers";
-import { customerBaseUrl, ensureEInvoiceToken, requestLockReason } from "@/lib/einvoice-request";
 
 export async function loadDocData(
   id: string,
@@ -37,16 +35,6 @@ export async function loadDocData(
       : order.paidAt || order.createdAt;
   const last = order.payments[order.payments.length - 1];
 
-  // QR so the customer can send their own e-Invoice details (only while it is still possible).
-  let eInvoiceRequest: DocData["eInvoiceRequest"] = null;
-  if (type !== "quotation" && order.invoiceNumber && requestLockReason(order) === "none") {
-    const token = await ensureEInvoiceToken(order.id, order.eInvoiceToken);
-    if (token) {
-      const base = customerBaseUrl((await headers()).get("host"));
-      eInvoiceRequest = { url: `${base}/e-invoice/${token}`, received: !!order.buyerRequestedAt };
-    }
-  }
-
   return {
     missing: null,
     data: {
@@ -69,7 +57,6 @@ export async function loadDocData(
       customer: order.buyerRequestedAt && order.buyerName
         ? { name: order.buyerName, phone: order.buyerPhone || order.customer.phone, tin: order.buyerTin }
         : { name: order.customer.name, phone: order.customer.phone, tin: order.customer.tin },
-      eInvoiceRequest,
       vehicle: {
         plateNumber: order.vehicle.plateNumber,
         make: order.vehicle.make,

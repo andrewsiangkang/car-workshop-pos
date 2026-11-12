@@ -62,7 +62,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             initialUuid={data.eInvoice?.uuid}
             initialLongId={data.eInvoice?.longId}
             buyer={buyer}
-            requestUrl={data.eInvoiceRequest?.url}
           />
           <DocumentLayout data={data} />
         </>
