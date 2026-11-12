@@ -1,0 +1,35 @@
+# 【中文】手动运行：打包「演示版」安装包（带示范资料）。不会发布到 Releases，只在 Actions 页面下载。
+name: Build DEMO installer
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx prisma generate
+      - name: Create template database
+        shell: bash
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: file:./template.db
+      - name: Fill with demo data
+        shell: bash
+        run: node scripts/seed-demo.js
+        env:
+          DATABASE_URL: file:./template.db
+      - run: npm run build
+        env:
+          DATABASE_URL: file:./template.db
+      - run: npx electron-builder --win --config electron-builder-demo.yml --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WorkshopPOS-DEMO-Setup
+          path: dist/*.exe
