@@ -10,6 +10,12 @@ import { cleanMoneyInput } from "@/lib/money-input";
 const btn =
   "rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50";
 
+const toCents = (value: string | number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round((parsed + Number.EPSILON) * 100) : 0;
+};
+const fromCents = (value: number) => value / 100;
+
 export function OrderActions({
   id,
   status,
@@ -64,14 +70,22 @@ export function OrderActions({
     return ok;
   }
 
-  const splitTotal = splits.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-  const splitChange = splits.reduce((sum, row) => {
+  // Compare all payment values in integer sen to avoid Float errors such as
+  // RM63.73 being treated as RM63.729999 and incorrectly rejected.
+  const remainingCents = toCents(remaining);
+  const splitTotalCents = splits.reduce((sum, row) => sum + toCents(row.amount), 0);
+  const splitChangeCents = splits.reduce((sum, row) => {
     if (row.method !== "CASH") return sum;
-    const amount = Number(row.amount) || 0;
-    const tendered = row.tendered.trim() ? Number(row.tendered) || 0 : amount;
-    return sum + Math.max(0, tendered - amount);
+    const amountCents = toCents(row.amount);
+    const tenderedCents = row.tendered.trim() ? toCents(row.tendered) : amountCents;
+    return sum + Math.max(0, tenderedCents - amountCents);
   }, 0);
-  const canPay = counterOpen && splits.length > 0 && splits.every((row) => Number(row.amount) > 0 && (row.method !== "CASH" || !row.tendered.trim() || Number(row.tendered) >= Number(row.amount))) && splitTotal > 0 && splitTotal <= remaining + 0.0001;
+  const splitTotal = fromCents(splitTotalCents);
+  const splitChange = fromCents(splitChangeCents);
+  const canPay = counterOpen && splits.length > 0 &&
+    splits.every((row) => toCents(row.amount) > 0 &&
+      (row.method !== "CASH" || toCents(row.tendered.trim() ? row.tendered : row.amount) >= toCents(row.amount))) &&
+    splitTotalCents > 0 && splitTotalCents <= remainingCents;
 
   async function recordPayment() {
     const ok = await call({
@@ -108,7 +122,7 @@ export function OrderActions({
           <span>Payment recorded.</span>
           {notice.change > 0 && (
             <span className="ml-2 text-base font-bold">
-              <span>Give change:</span> {formatCurrency(notice.change)}
+              <span>Change to return to customer:</span> {formatCurrency(notice.change)}
             </span>
           )}
         </div>
@@ -185,8 +199,10 @@ export function OrderActions({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button type="button" onClick={() => setSplits((all) => [...all, { method: "CASH", amount: "", reference: "", tendered: "" }])} className="rounded-lg border border-blue-200 px-3 py-2 text-sm text-blue-700">+ Add payment method</button>
               <div className="text-right text-sm">
-                <div>Split total: <strong>{formatCurrency(splitTotal)}</strong> / Balance {formatCurrency(remaining)}</div>
-                <div className={splitTotal > remaining + 0.0001 ? "text-red-600" : "text-slate-500"}>{splitTotal > remaining + 0.0001 ? "Amount exceeds balance" : `Cash change: ${formatCurrency(splitChange)}`}</div>
+                <div>Payment applied: <strong>{formatCurrency(splitTotal)}</strong> / Balance {formatCurrency(fromCents(remainingCents))}</div>
+                <div className={splitTotalCents > remainingCents ? "text-red-600" : splitChangeCents > 0 ? "font-semibold text-emerald-700" : "text-slate-500"}>
+                  {splitTotalCents > remainingCents ? "Payment amount exceeds balance" : splitChangeCents > 0 ? `Change to return to customer: ${formatCurrency(splitChange)}` : "No change due"}
+                </div>
               </div>
               <button disabled={busy || !canPay} onClick={recordPayment} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>Record Split Payment</button>
             </div>

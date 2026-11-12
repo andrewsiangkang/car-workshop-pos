@@ -127,7 +127,8 @@ export async function PATCH(
           select: { totalAmount: true, paidAmount: true, creditedAmount: true, receiptNumber: true },
         });
         if (!cur) throw new UserError("Work order not found");
-        const remaining = money(Math.max(0, cur.totalAmount - cur.creditedAmount - cur.paidAmount));
+        const remainingCents = Math.max(0, Math.round((cur.totalAmount - cur.creditedAmount - cur.paidAmount + Number.EPSILON) * 100));
+        const remaining = remainingCents / 100;
         if (remaining <= 0) throw new UserError("This work order is fully paid");
         type SplitPaymentRow = {
           amount: number;
@@ -151,8 +152,9 @@ export async function PATCH(
           }
           return { amount, method, tendered, changeGiven, reference: String(row.reference || "").slice(0, 100) || null };
         });
-        const total = money(rows.reduce<number>((sum: number, row: SplitPaymentRow) => sum + row.amount, 0));
-        if (total > remaining) throw new UserError(`Split payment total RM ${total.toFixed(2)} cannot exceed remaining balance RM ${remaining.toFixed(2)}`);
+        const totalCents = rows.reduce<number>((sum: number, row: SplitPaymentRow) => sum + Math.round(row.amount * 100), 0);
+        const total = totalCents / 100;
+        if (totalCents > remainingCents) throw new UserError(`Payment amount RM ${total.toFixed(2)} cannot exceed remaining balance RM ${remaining.toFixed(2)}`);
         const receiptNumber = cur.receiptNumber || (await nextDocNumber("RC", "receiptNumber", tx));
         await tx.payment.createMany({
           data: rows.map((row) => ({

@@ -256,7 +256,7 @@ export function DocumentLayout({ data }: { data: DocData }) {
                     <span>{formatCurrency(p.tendered)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-slate-800">
-                    <span>Change</span>
+                    <span>Change Returned to Customer</span>
                     <span>{formatCurrency(p.changeGiven ?? 0)}</span>
                   </div>
                 </div>
