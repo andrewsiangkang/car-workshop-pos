@@ -16,12 +16,14 @@ export function OrderActions({
   hasInvoice,
   remaining,
   counterOpen,
+  stockWarnings = [], // 新增：接收库存警告，默认空数组
 }: {
   id: string;
   status: string;
   hasInvoice: boolean;
   remaining: number;
   counterOpen: boolean;
+  stockWarnings?: string[]; // TS类型定义，可选字符串数组
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
