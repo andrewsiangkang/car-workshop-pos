@@ -6,6 +6,7 @@ import { nextDocNumber, money } from "@/lib/docnumber";
 import { VALID_STATUSES, PAYMENT_METHODS } from "@/lib/status";
 import { computeTotals, effectiveRate, normaliseScope } from "@/lib/tax";
 import { getOpenShift } from "@/lib/counter";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -41,10 +42,12 @@ export async function PATCH(
   const __denied = await requireAuth();
   if (__denied) return __denied;
   try {
+    const actor = await getCurrentUser();
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
     const body = await request.json();
     const action = body.action as string;
-    const owner = isOwner(await getCurrentUser());
+    const owner = isOwner(actor);
 
     const order = await prisma.workOrder.findUnique({
       where: { id },
@@ -91,6 +94,7 @@ export async function PATCH(
           include,
         });
       });
+      if (updated) await writeAuditLog({ actor, request, action: "INVOICE_ISSUED", entityType: "WorkOrder", entityId: id, summary: `Invoice issued for ${order.orderNumber}`, details: { invoiceNumber: updated.invoiceNumber, totalAmount: updated.totalAmount } });
       const body = updated ? redactOrder(updated, owner) : updated;
       return NextResponse.json(
         body && typeof body === "object"
@@ -163,6 +167,7 @@ export async function PATCH(
           include,
         });
       });
+      await writeAuditLog({ actor, request, action: "PAYMENT_RECORDED", entityType: "WorkOrder", entityId: id, summary: `Payment recorded for ${order.orderNumber}`, details: { method, cumulativePaidAmount: updated.paidAmount, receiptNumber: updated.receiptNumber } });
       return NextResponse.json(redactOrder(updated, owner));
     }
 
@@ -187,6 +192,7 @@ export async function PATCH(
         data: { buyerRequestedAt: new Date(), buyerName: name, buyerTin: tin, buyerIdType: idType, buyerIdNo: idNo },
         include,
       });
+      await writeAuditLog({ actor, request, action: "EINVOICE_BUYER_UPDATED", entityType: "WorkOrder", entityId: id, summary: `e-Invoice buyer details updated for ${order.orderNumber}` });
       return NextResponse.json(redactOrder(updated, owner));
     }
 
@@ -209,6 +215,7 @@ export async function PATCH(
         },
         include,
       });
+      await writeAuditLog({ actor, request, action: "EINVOICE_REFERENCE_UPDATED", entityType: "WorkOrder", entityId: id, summary: `e-Invoice reference updated for ${order.orderNumber}`, details: { hasLongId: Boolean(longId) } });
       return NextResponse.json(redactOrder(updated, owner));
     }
 
@@ -291,6 +298,7 @@ export async function PATCH(
         }
         return tx.workOrder.update({ where: { id }, data, include });
       });
+      await writeAuditLog({ actor, request, action: next === "CANCELLED" ? "WORK_ORDER_CANCELLED" : "WORK_ORDER_STATUS_CHANGED", entityType: "WorkOrder", entityId: id, summary: `${order.orderNumber}: ${order.status} → ${next}`, details: { from: order.status, to: next } });
       return NextResponse.json(redactOrder(updated, owner));
     }
 

@@ -18,6 +18,7 @@ import {
   Truck,
   ReceiptText,
   Banknote,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -34,6 +35,7 @@ const navItems = [
   { href: "/suppliers", label: "Suppliers", icon: Users, ownerOnly: true },
   { href: "/payment-vouchers", label: "Payment Vouchers", icon: ReceiptText, ownerOnly: true },
   { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
+  { href: "/audit-logs", label: "Audit Trail", icon: ClipboardList, ownerOnly: true },
   { href: "/einvoice", label: "e-Invoice (Monthly)", icon: FileStack, ownerOnly: true },
   { href: "/settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
@@ -130,7 +132,7 @@ export function Sidebar() {
                 {name || "User"} · {isOwner ? "Boss" : "Staff"}
               </div>
               Local · Data stored on this computer
-              <div className="mt-1 text-slate-400">v0.3.2</div>
+              <div className="mt-1 text-slate-400">v0.3.8</div>
             </div>
           </div>
         </div>

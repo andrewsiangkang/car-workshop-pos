@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requireOwner, getCurrentUser, isOwner } from "@/lib/auth";
 import { redactInventoryItem } from "@/lib/redact";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (__denied) return __denied;
   const { id } = await params;
   try {
-    const owner = isOwner(await getCurrentUser());
+    const actor = await getCurrentUser();
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const owner = isOwner(actor);
     const b = await request.json();
     const data: any = {};
     if (b.name != null) {
@@ -26,6 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (b.notes != null) data.notes = String(b.notes).trim() || null;
 
     const item = await prisma.inventoryItem.update({ where: { id }, data });
+    await writeAuditLog({ actor, request, action: "INVENTORY_UPDATED", entityType: "InventoryItem", entityId: id, summary: `Inventory item updated: ${item.name}`, details: { changedFields: Object.keys(data) } });
     return NextResponse.json(redactInventoryItem(item, owner));
   } catch (e: any) {
     console.error(e);
@@ -37,6 +41,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const __denied = await requireOwner();
   if (__denied) return __denied;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   try {
     // Deleting would also wipe its stock history (cascade). Business records must be
@@ -48,7 +54,9 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
         { status: 409 }
       );
     }
+    const removed = await prisma.inventoryItem.findUnique({ where: { id }, select: { name: true, sku: true } });
     await prisma.inventoryItem.delete({ where: { id } });
+    await writeAuditLog({ actor, action: "INVENTORY_DELETED", entityType: "InventoryItem", entityId: id, summary: `Inventory item deleted: ${removed?.name || id}`, details: { sku: removed?.sku || null } });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error(e);

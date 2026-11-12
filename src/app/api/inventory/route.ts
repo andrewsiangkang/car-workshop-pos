@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, getCurrentUser, isOwner } from "@/lib/auth";
 import { redactInventoryItem } from "@/lib/redact";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,9 @@ export async function POST(request: Request) {
   const __denied = await requireAuth();
   if (__denied) return __denied;
   try {
-    const owner = isOwner(await getCurrentUser());
+    const actor = await getCurrentUser();
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const owner = isOwner(actor);
     const b = await request.json();
     const name = String(b.name || "").trim();
     if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -56,6 +59,7 @@ export async function POST(request: Request) {
         notes: String(b.notes || "").trim() || null,
       },
     });
+    await writeAuditLog({ actor, request, action: "INVENTORY_CREATED", entityType: "InventoryItem", entityId: item.id, summary: `Inventory item created: ${item.name}`, details: { sku: item.sku, quantityOnHand: item.quantityOnHand } });
     return NextResponse.json(redactInventoryItem(item, owner), { status: 201 });
   } catch (e: any) {
     console.error(e);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, getCurrentUser, isOwner } from "@/lib/auth";
 import { redactInventoryItem } from "@/lib/redact";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ const TYPES = ["IN", "OUT", "ADJUST"];
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const __denied = await requireAuth();
   if (__denied) return __denied;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   try {
     const b = await request.json();
@@ -41,7 +44,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (!updated) return NextResponse.json({ error: "Item not found" }, { status: 404 });
     if (updated === "insufficient") return NextResponse.json({ error: "Insufficient stock" }, { status: 400 });
-    return NextResponse.json(redactInventoryItem(updated, isOwner(await getCurrentUser())));
+    await writeAuditLog({ actor, request, action: "STOCK_ADJUSTMENT", entityType: "InventoryItem", entityId: id, summary: `Stock ${type.toLowerCase()} for ${updated.name}`, details: { type, delta, quantityOnHand: updated.quantityOnHand, notes } });
+    return NextResponse.json(redactInventoryItem(updated, isOwner(actor)));
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Adjustment failed" }, { status: 500 });

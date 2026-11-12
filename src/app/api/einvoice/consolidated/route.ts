@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireOwner } from "@/lib/auth";
+import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 import { consolidationPreview, isValidMonth, currentMonth } from "@/lib/consolidation";
 import {
   getMyInvoisConfig,
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
   const denied = await requireOwner();
   if (denied) return denied;
   try {
+    const actor = await getCurrentUser();
     const { month } = await request.json();
     if (!isValidMonth(String(month || ""))) {
       return NextResponse.json({ error: "month must be YYYY-MM" }, { status: 400 });
@@ -49,6 +51,9 @@ export async function POST(request: Request) {
     }
 
     const { shop } = await getMyInvoisConfig();
+    if (!shop.myInvoisSandbox) {
+      return NextResponse.json({ error: "Production MyInvois submission is disabled until XAdES digital signing is implemented and verified with your organisation certificate.", code: "PRODUCTION_SIGNING_NOT_AVAILABLE" }, { status: 501 });
+    }
     const { supplier, missing } = supplierFromShop(shop);
     if (missing.length) {
       return NextResponse.json({ error: `Fill in Settings → Shop first: ${missing.join(", ")}` }, { status: 400 });
@@ -100,6 +105,7 @@ export async function POST(request: Request) {
       return con;
     });
 
+    if (actor) await writeAuditLog({ actor, request, action: "MYINVOIS_CONSOLIDATED_SUBMITTED", entityType: "ConsolidatedInvoice", entityId: record.id, summary: `Monthly consolidated e-Invoice submitted`, details: { month, number, orderCount: p.reportable.length, totalAmount: p.totals.total, uuid: r.uuid } });
     return NextResponse.json({ ok: true, id: record.id, number, submissionUID: r.submissionUID, uuid: r.uuid });
   } catch (e: any) {
     console.error(e);

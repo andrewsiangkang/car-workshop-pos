@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import QRCode from "qrcode";
+import { requireAuth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  // QR payloads can contain invoice verification links or internal network URLs.
+  const denied = await requireAuth();
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const text = searchParams.get("text") || "";
   if (!text || text.length > 500) {
@@ -14,7 +19,7 @@ export async function GET(request: Request) {
     return new NextResponse(new Uint8Array(png), {
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (e) {

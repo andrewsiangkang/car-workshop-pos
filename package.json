@@ -1,6 +1,6 @@
 {
   "name": "car-workshop-pos",
-  "version": "0.3.5",
+  "version": "0.3.8",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,13 @@
     "db:studio": "prisma studio",
     "electron:dev": "electron .",
     "electron:dist": "electron-builder --win --config electron-builder.yml --publish never",
-    "prebuild": "node scripts/copy-ocr.js"
+    "prebuild": "node scripts/copy-ocr.js",
+    "typecheck": "tsc --noEmit",
+    "db:template": "node scripts/create-template-db.js",
+    "preelectron:dist": "npm run build && npm run db:template",
+    "electron:dist:demo": "electron-builder --win --config electron-builder-demo.yml --publish never",
+    "preelectron:dist:demo": "npm run build && npm run db:template",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
@@ -46,6 +52,6 @@
     "typescript": "^5"
   },
   "main": "electron/main.js",
-  "description": "修车店 POS 系统",
+  "description": "\u4fee\u8f66\u5e97 POS \u7cfb\u7edf",
   "author": "Workshop"
 }

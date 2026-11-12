@@ -12,11 +12,13 @@
  * Confirm the correct rate and scope for the shop with JKDM / the tax agent.
  */
 
+import { roundMoney } from "@/lib/money-core.mjs";
+
 export type TaxScope = "ALL" | "LABOR";
 
 // 【中文】金额四舍五入到分（sen），避免 0.1+0.2 这类小数误差。
 export function money(n: number) {
-  return Math.round((Number(n) || 0) * 100 + Number.EPSILON) / 100;
+  return roundMoney(Number(n) || 0);
 }
 
 // 【中文】店铺是否已登记 SST：必须填了 SST 号码（不是 NA）且税率大于 0 才收税。

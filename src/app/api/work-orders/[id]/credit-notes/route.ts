@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { nextCreditNoteNumber, money } from "@/lib/docnumber";
 import { PAYMENT_METHODS } from "@/lib/status";
 import { getOpenShift } from "@/lib/counter";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
       return created;
     });
+    if (me) await writeAuditLog({ actor: me, request, action: "CREDIT_NOTE_ISSUED", entityType: "CreditNote", entityId: cn.id, summary: `Credit note ${cn.number} issued`, details: { workOrderId: id, amount: cn.amount, refundAmount: cn.refundAmount, refundMethod: cn.refundMethod } });
     return NextResponse.json(cn, { status: 201 });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { nextVoucherNumber, money } from "@/lib/docnumber";
 import { PAYMENT_METHODS } from "@/lib/status";
 import { getOpenShift } from "@/lib/counter";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
         },
       });
     });
+    if (me) await writeAuditLog({ actor: me, request, action: "PAYMENT_VOUCHER_CREATED", entityType: "PaymentVoucher", entityId: v.id, summary: `Payment voucher ${v.number} created`, details: { payee: v.payee, amount: v.amount, method: v.method, supplierInvoiceId: v.supplierInvoiceId, shiftId: v.shiftId } });
     return NextResponse.json(v, { status: 201 });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });

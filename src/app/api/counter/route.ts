@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getCurrentUser, isOwner } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 import { money } from "@/lib/tax";
 import { getOpenShift, summarizeShift } from "@/lib/counter";
 import { NON_CASH_METHODS, breakdownTotal, depositOf, parseBreakdown, parseReconciled, varianceOf, type Breakdown } from "@/lib/counter-calc";
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
           },
         });
       });
+      await writeAuditLog({ actor: me, request, action: "CASH_SHIFT_OPENED", entityType: "CashShift", entityId: shift.id, summary: `Cash counter opened by ${me.name}`, details: { openingFloat } });
       return NextResponse.json({ ok: true, id: shift.id }, { status: 201 });
     }
 
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
         return { id: shift.id, variance, expectedCash: s.expectedCash, floatKept, depositAmount };
       });
 
+      await writeAuditLog({ actor: me, request, action: "CASH_SHIFT_CLOSED", entityType: "CashShift", entityId: result.id, summary: `Cash counter closed by ${me.name}`, details: { expectedCash: result.expectedCash, countedCash: counted, variance: result.variance, floatKept: result.floatKept, depositAmount: result.depositAmount } });
       return NextResponse.json({
         ok: true,
         id: result.id,
@@ -130,6 +133,7 @@ export async function POST(request: Request) {
           data: { depositedAt: null, depositedByName: null, depositRef: null },
         });
       }
+      await writeAuditLog({ actor: me, request, action: b.action === "deposit" ? "CASH_DEPOSIT_CONFIRMED" : "CASH_DEPOSIT_REVERSED", entityType: "CashShift", entityId: shift.id, summary: `${b.action === "deposit" ? "Cash deposit confirmed" : "Cash deposit reversed"} by ${me.name}`, details: { depositRef: b.action === "deposit" ? (String(b.depositRef || "").trim().slice(0, 100) || null) : null } });
       return NextResponse.json({ ok: true });
     }
 
@@ -144,6 +148,7 @@ export async function POST(request: Request) {
         else delete cur[b.method];
         await tx.cashShift.update({ where: { id: shift.id }, data: { reconciled: JSON.stringify(cur) } });
       });
+      await writeAuditLog({ actor: me, request, action: "PAYMENT_METHOD_RECONCILED", entityType: "CashShift", entityId: String(b.shiftId), summary: `${b.method} reconciliation ${b.checked === true ? "checked" : "unchecked"}`, details: { method: b.method, checked: b.checked === true } });
       return NextResponse.json({ ok: true });
     }
 

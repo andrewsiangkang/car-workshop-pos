@@ -3,6 +3,7 @@ import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextSupplierInvoiceNumber, money } from "@/lib/docnumber";
 import { categorize, SERVICE_CATEGORY } from "@/lib/supplier-parse";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -163,6 +164,7 @@ export async function POST(request: Request) {
       }
       return { id: invoice.id, internalNo, supplierId: supplier.id, created, updated, serviceLines };
     });
+    if (me) await writeAuditLog({ actor: me, request, action: "SUPPLIER_INVOICE_CREATED", entityType: "SupplierInvoice", entityId: result.id, summary: `Supplier invoice ${invoiceNo} recorded`, details: { internalNo: result.internalNo, supplierId: result.supplierId, subtotal, taxAmount, totalAmount, itemCount: lines.length, stockItemsCreated: result.created, stockItemsUpdated: result.updated } });
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });

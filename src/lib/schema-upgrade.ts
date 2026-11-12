@@ -66,6 +66,40 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
 // 【中文】新版本新增的表（含索引）。
 const TABLES: Array<{ table: string; ddl: string[] }> = [
   {
+    table: "LoginThrottle",
+    ddl: [
+      `CREATE TABLE "LoginThrottle" (
+    "key" TEXT NOT NULL PRIMARY KEY,
+    "failures" INTEGER NOT NULL DEFAULT 0,
+    "windowStartedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lockedUntil" DATETIME,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`,
+      `CREATE INDEX "LoginThrottle_lockedUntil_idx" ON "LoginThrottle"("lockedUntil")`,
+    ],
+  },
+  {
+    table: "AuditLog",
+    ddl: [
+      `CREATE TABLE "AuditLog" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "actorUserId" TEXT,
+    "actorName" TEXT NOT NULL,
+    "actorRole" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "entityType" TEXT NOT NULL,
+    "entityId" TEXT,
+    "summary" TEXT NOT NULL,
+    "details" TEXT,
+    "ipAddress" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`,
+      `CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt")`,
+      `CREATE INDEX "AuditLog_entityType_entityId_idx" ON "AuditLog"("entityType", "entityId")`,
+      `CREATE INDEX "AuditLog_actorUserId_createdAt_idx" ON "AuditLog"("actorUserId", "createdAt")`,
+    ],
+  },
+  {
     table: "CashShift",
     ddl: [
       `CREATE TABLE "CashShift" (

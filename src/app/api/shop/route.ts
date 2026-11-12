@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireOwner } from "@/lib/auth";
+import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { ShopProfile } from "@prisma/client";
 import { MY_STATES } from "@/lib/my-states";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export async function PUT(request: Request) {
   const __denied = await requireOwner();
   if (__denied) return __denied;
   try {
+    const actor = await getCurrentUser();
     const body = await request.json();
     const existing = await prisma.shopProfile.findFirst();
 
@@ -90,6 +92,7 @@ export async function PUT(request: Request) {
       ? await prisma.shopProfile.update({ where: { id: existing.id }, data })
       : await prisma.shopProfile.create({ data });
 
+    if (actor) await writeAuditLog({ actor, request, action: "SHOP_SETTINGS_UPDATED", entityType: "ShopProfile", entityId: shop.id, summary: `Workshop settings updated`, details: { changedFields: Object.keys(data).filter((field) => !["myInvoisClientSecret", "myInvoisClientId", "bankAccount"].includes(field)), myInvoisCredentialsChanged: Boolean(body.myInvoisClientId || body.myInvoisClientSecret) } });
     return NextResponse.json(publicShop(shop));
   } catch (e) {
     console.error(e);

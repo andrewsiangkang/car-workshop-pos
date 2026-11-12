@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function POST(request: Request) {
   const __denied = await requireAuth();
   if (__denied) return __denied;
   try {
+    const actor = await getCurrentUser();
     const b = await request.json();
     const name = String(b.name || "").trim();
     const phone = String(b.phone || "").trim();
@@ -23,6 +25,7 @@ export async function POST(request: Request) {
         notes: String(b.notes || "").trim() || null,
       },
     });
+    if (actor) await writeAuditLog({ actor, request, action: "CUSTOMER_CREATED", entityType: "Customer", entityId: c.id, summary: `Customer record created` });
     return NextResponse.json(c, { status: 201 });
   } catch (e) {
     console.error(e);

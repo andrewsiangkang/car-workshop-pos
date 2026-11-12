@@ -381,3 +381,35 @@ model PaymentVoucher {
   shift             CashShift?       @relation(fields: [shiftId], references: [id])
   supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
 }
+
+
+// Immutable operational audit trail. Sensitive credentials and full payment data must never be stored here.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorName   String
+  actorRole   String
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  details     String?  // JSON with non-sensitive before/after values only
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}
+
+
+// Persistent per-account login throttling survives app restarts. The key is a SHA-256 digest, not an email.
+model LoginThrottle {
+  key              String   @id
+  failures         Int      @default(0)
+  windowStartedAt  DateTime @default(now())
+  lockedUntil      DateTime?
+  updatedAt        DateTime @updatedAt
+
+  @@index([lockedUntil])
+}

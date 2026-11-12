@@ -52,14 +52,19 @@ Database starts completely empty.
 
 | 文件 | 说明 |
 |------|------|
-| [`docs/REPORT-v0.3.3.md`](./docs/REPORT-v0.3.3.md) | 完整评估（已做 / 缺失 / 可改进） |
+| [`docs/REPORT-v0.3.3.md`](./docs/REPORT-v0.3.3.md) | 历史评估（v0.3.3） |
+| [`docs/AUDIT-v0.3.8.md`](./docs/AUDIT-v0.3.8.md) | **最新审计报告 v0.3.8** |
+| [`docs/AUDIT-v0.3.6.md`](./docs/AUDIT-v0.3.6.md) | v0.3.6 安全修复记录 |
 | [`docs/ROADMAP-v0.3.4.md`](./docs/ROADMAP-v0.3.4.md) | 任务清单（含 v0.3.5 已完成项） |
 | [`docs/car-workshop-pos-audit-v0.3.4.pdf`](./docs/car-workshop-pos-audit-v0.3.4.pdf) | 审计报告 PDF · v0.3.4 |
-| [`docs/car-workshop-pos-audit-v0.3.5.pdf`](./docs/car-workshop-pos-audit-v0.3.5.pdf) | 审计报告 PDF · **v0.3.5（当前）** |
+| [`docs/car-workshop-pos-audit-v0.3.5.pdf`](./docs/car-workshop-pos-audit-v0.3.5.pdf) | 历史审计报告 PDF · v0.3.5 |
 
 根目录也有 `REPORT-v0.3.3.md`、`ROADMAP-v0.3.4.md` 副本。
 
 ## Features
+
+- **v0.3.8 hardening** — SQLite-backed login throttling, expanded audit events, integer-sen calculation primitives and production MyInvois submission lock until XAdES signing is available. See `docs/AUDIT-v0.3.8.md`.
+
 
 - Work Orders with Quotation / Invoice / Receipt
 - Customer & Vehicle management (auto-fill by plate number)
@@ -169,3 +174,10 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
 - 老板可在 Counter 页查看历史结算记录。
 - 所有金额框都是手动输入，没有上下箭头。
 - 旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。
+
+- **v0.3.6**：修复二维码 API 未登录即可生成及公共缓存问题；新增 `npm run typecheck`。
+- **v0.3.7**：新增老板专属 Audit Trail 页面/API，记录库存、工单、开票、收款及现金班次等关键操作；新增 `AuditLog` 数据表；修复 Electron 打包时缺少 `prisma/template.db` 的问题，打包前自动从 schema 生成模板数据库。旧数据库启动时会先备份，再自动添加 AuditLog 表；升级流程与验证清单见 `docs/AUDIT-v0.3.7.md`。
+
+
+
+**Current source version: v0.3.8**

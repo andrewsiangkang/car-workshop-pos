@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { MIN_PASSWORD_LENGTH, requireOwner } from "@/lib/auth";
+import { MIN_PASSWORD_LENGTH, requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
   const denied = await requireOwner();
   if (denied) return denied;
   try {
+    const actor = await getCurrentUser();
     const b = await request.json();
     const username = String(b.username || "").trim().toLowerCase();
     const name = String(b.name || "").trim() || username;
@@ -60,6 +62,7 @@ export async function POST(request: Request) {
       data: { name, email: username, passwordHash, role },
       select: { id: true, name: true, email: true, role: true },
     });
+    if (actor) await writeAuditLog({ actor, request, action: "USER_CREATED", entityType: "User", entityId: user.id, summary: `User account created`, details: { role: user.role } });
     return NextResponse.json(
       { id: user.id, name: user.name, username: user.email, role: user.role },
       { status: 201 }

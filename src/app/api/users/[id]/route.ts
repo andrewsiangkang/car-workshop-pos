@@ -8,6 +8,7 @@ import {
   COOKIE,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       data,
       select: { id: true, name: true, email: true, role: true, passwordHash: true },
     });
+    if (me) await writeAuditLog({ actor: me, request, action: "USER_UPDATED", entityType: "User", entityId: user.id, summary: `User account updated`, details: { changedFields: Object.keys(data).filter((field) => field !== "passwordHash"), passwordReset: Boolean(data.passwordHash), role: user.role } });
     const res = NextResponse.json({ id: user.id, name: user.name, username: user.email, role: user.role });
     // A password change invalidates all sessions of that user. If the boss changed
     // their own password, give this browser a fresh cookie so they stay logged in.
@@ -71,7 +73,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 /** Delete an account (boss only). Accounts that already created work orders cannot be deleted. */
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireOwner();
   if (denied) return denied;
   try {
@@ -97,6 +99,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     }
 
     await prisma.user.delete({ where: { id } });
+    if (me) await writeAuditLog({ actor: me, request, action: "USER_DELETED", entityType: "User", entityId: id, summary: `User account deleted` });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error(e);

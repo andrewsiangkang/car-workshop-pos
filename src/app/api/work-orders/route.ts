@@ -4,6 +4,7 @@ import { redactOrder } from "@/lib/redact";
 import { prisma } from "@/lib/prisma";
 import { nextDocNumber, money } from "@/lib/docnumber";
 import { computeTotals, effectiveRate, normaliseScope } from "@/lib/tax";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -204,6 +205,7 @@ export async function POST(request: Request) {
     return created;
     }, { timeout: 15000 });
 
+    await writeAuditLog({ actor: user, request, action: "WORK_ORDER_CREATED", entityType: "WorkOrder", entityId: order.id, summary: `Work order ${order.orderNumber} created`, details: { orderNumber: order.orderNumber, itemCount: order.items.length, totalAmount: order.totalAmount } });
     return NextResponse.json(redactOrder(order, owner), { status: 201 });
   } catch (e) {
     console.error(e);

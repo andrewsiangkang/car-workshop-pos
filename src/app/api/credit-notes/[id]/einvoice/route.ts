@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireOwner } from "@/lib/auth";
+import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 import {
   getMyInvoisConfig,
   buildCreditNoteJson,
@@ -21,11 +22,12 @@ const isLive = (s: string | null | undefined) => !["invalid", "cancelled", "cons
  * reported the original sale: the invoice's own e-Invoice, or the monthly
  * consolidated e-Invoice that included it.
  */
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireOwner();
   if (denied) return denied;
   try {
     const { id } = await params;
+    const actor = await getCurrentUser();
     const cn = await prisma.creditNote.findUnique({
       where: { id },
       include: { workOrder: { include: { customer: true } } },
@@ -70,6 +72,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     }
 
     const { shop } = await getMyInvoisConfig();
+    if (!shop.myInvoisSandbox) {
+      return NextResponse.json({ error: "Production MyInvois submission is disabled until XAdES digital signing is implemented and verified with your organisation certificate.", code: "PRODUCTION_SIGNING_NOT_AVAILABLE" }, { status: 501 });
+    }
     const { supplier, missing } = supplierFromShop(shop);
     if (missing.length) {
       return NextResponse.json({ error: `Fill in Settings → Shop first: ${missing.join(", ")}` }, { status: 400 });
@@ -97,6 +102,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       where: { id },
       data: { eInvoiceUuid: r.uuid, eInvoiceStatus: "pending", submissionUid: r.submissionUID },
     });
+    if (actor) await writeAuditLog({ actor, request, action: "MYINVOIS_CREDIT_NOTE_SUBMITTED", entityType: "CreditNote", entityId: id, summary: `Credit note submitted to MyInvois`, details: { creditNoteNumber: cn.number, uuid: r.uuid, environment: shop.myInvoisSandbox ? "sandbox" : "production" } });
     return NextResponse.json({ ok: true, submissionUID: r.submissionUID, uuid: r.uuid });
   } catch (e: any) {
     console.error(e);

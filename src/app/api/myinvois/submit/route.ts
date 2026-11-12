@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   getMyInvoisConfig,
@@ -11,6 +11,7 @@ import {
   buyerForOrder,
 } from "@/lib/myinvois";
 import { friendlyMyInvoisError, formatFriendlyError } from "@/lib/myinvois-errors";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
   const __denied = await requireAuth();
   if (__denied) return __denied;
   try {
+    const actor = await getCurrentUser();
     const { orderId } = await request.json();
     if (!orderId) return NextResponse.json({ error: "orderId required" }, { status: 400 });
 
@@ -50,6 +52,14 @@ export async function POST(request: Request) {
     }
 
     const { shop } = await getMyInvoisConfig();
+    // Production API submission requires an approved Malaysian X.509 certificate and XAdES signature.
+    // This build has no certificate-backed signing implementation; fail closed instead of sending unsigned documents.
+    if (!shop.myInvoisSandbox) {
+      return NextResponse.json(
+        { error: "Production MyInvois submission is disabled until XAdES digital signing is implemented and verified with your organisation certificate.", code: "PRODUCTION_SIGNING_NOT_AVAILABLE" },
+        { status: 501 }
+      );
+    }
     const { supplier, missing } = supplierFromShop(shop);
     if (missing.length) {
       return NextResponse.json({ error: `Fill in Settings → Shop first: ${missing.join(", ")}` }, { status: 400 });
@@ -101,6 +111,7 @@ export async function POST(request: Request) {
         submissionUid: r.submissionUID || null,
       },
     });
+    if (actor) await writeAuditLog({ actor, request, action: "MYINVOIS_INVOICE_SUBMITTED", entityType: "WorkOrder", entityId: orderId, summary: `Invoice submitted to MyInvois`, details: { invoiceNumber: order.invoiceNumber, uuid: r.uuid, environment: shop.myInvoisSandbox ? "sandbox" : "production" } });
     return NextResponse.json({
       ok: true,
       submissionUID: r.submissionUID,

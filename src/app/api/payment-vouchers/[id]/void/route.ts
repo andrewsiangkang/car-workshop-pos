@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireOwner } from "@/lib/auth";
+import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { money } from "@/lib/docnumber";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (denied) return denied;
   try {
     const { id } = await params;
+    const actor = await getCurrentUser();
     const b = await request.json().catch(() => ({}));
     const reason = typeof b.reason === "string" ? b.reason.trim().slice(0, 300) : "";
     if (!reason) throw new UserError("Please give a reason for voiding");
@@ -40,6 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }
       }
     });
+    if (actor) await writeAuditLog({ actor, request, action: "PAYMENT_VOUCHER_VOIDED", entityType: "PaymentVoucher", entityId: id, summary: `Payment voucher voided`, details: { reason } });
     return NextResponse.json({ ok: true });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });
