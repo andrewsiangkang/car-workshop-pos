@@ -141,26 +141,41 @@ export async function requireOwner(): Promise<NextResponse | null> {
   return null;
 }
 
-// ---------- Login brute-force protection (in-memory, per username + IP) ----------
-// 【中文】登录防暴力破解：同一用户名连续输错 5 次，锁定 15 分钟（只保存在内存，重启程序后清零）。
-const MAX_FAILS = 5;
-const LOCK_MS = 15 * 60 * 1000;
-const fails = new Map<string, { count: number; until: number }>();
+// ---------- Login brute-force protection (in-memory, per username) ----------
+// 【中文】登录防暴力破解（按用户名）：输错越多锁得越久 —— 5 次锁 1 分钟，10 次锁 5 分钟，15 次以上锁 15 分钟。
+// 别人故意输错只能让老板等 1 分钟，而不是一下锁 15 分钟；猜密码的人则越猜越慢。重启程序会清零。
+// Keyed by username only (client IP headers can be forged). The lock grows with the
+// number of failures, so someone on the Wi-Fi typing wrong passwords on purpose only
+// delays the real user briefly at first, while guessing stays very slow. A failure
+// count is forgotten after 1 hour without failures. Restarting the app clears it.
+const STEPS: Array<[number, number]> = [
+  [15, 15 * 60 * 1000],
+  [10, 5 * 60 * 1000],
+  [5, 60 * 1000],
+];
+const FORGET_MS = 60 * 60 * 1000;
+const fails = new Map<string, { count: number; until: number; last: number }>();
 
 /** Seconds the key is still locked for (0 = not locked). */
 export function loginLockedFor(key: string): number {
   const f = fails.get(key);
-  if (!f || !f.until) return 0;
-  if (Date.now() < f.until) return Math.ceil((f.until - Date.now()) / 1000);
-  fails.delete(key);
-  return 0;
+  if (!f) return 0;
+  if (Date.now() - f.last > FORGET_MS) {
+    fails.delete(key);
+    return 0;
+  }
+  return f.until > Date.now() ? Math.ceil((f.until - Date.now()) / 1000) : 0;
 }
 export function recordLoginFailure(key: string) {
-  const f = fails.get(key) || { count: 0, until: 0 };
+  const now = Date.now();
+  const prev = fails.get(key);
+  const f = prev && now - prev.last <= FORGET_MS ? prev : { count: 0, until: 0, last: now };
   f.count += 1;
-  if (f.count >= MAX_FAILS) {
-    f.until = Date.now() + LOCK_MS;
-    f.count = 0;
+  f.last = now;
+  // Lock at every 5th failure; longer the more failures there have been.
+  if (f.count % 5 === 0) {
+    const step = STEPS.find(([n]) => f.count >= n);
+    if (step) f.until = now + step[1];
   }
   fails.set(key, f);
   if (fails.size > 5000) fails.clear(); // memory guard

@@ -17,9 +17,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   // Next.js needs inline scripts/styles; blocks framing, plugins and foreign form posts.
   "Content-Security-Policy":
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; " +
-    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}; ` +
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}; ` +
     `connect-src 'self'${process.env.NODE_ENV === "production" ? "" : " ws:"};`  +
-    " frame-ancestors 'none'; " +
+    " worker-src 'self' blob:; frame-ancestors 'none'; " +
     "object-src 'none'; base-uri 'self'; form-action 'self'",
 };
 

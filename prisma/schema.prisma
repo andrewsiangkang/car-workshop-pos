@@ -213,6 +213,7 @@ model InventoryItem {
 
   movements      StockMovement[]
   workOrderItems WorkOrderItem[]
+  supplierItems  SupplierInvoiceItem[]
 }
 
 model StockMovement {
@@ -260,4 +261,74 @@ model ConsolidatedInvoice {
   eInvoiceLongId String?
   eInvoiceStatus String?
   submissionUid  String?
+}
+
+// ===== Purchasing: supplier invoices (stock in) and payment vouchers =====
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  phone     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  invoices  SupplierInvoice[]
+}
+
+model SupplierInvoice {
+  id          String   @id @default(cuid())
+  internalNo  String   @unique          // SI20261111001
+  invoiceNo   String                    // number printed on the supplier's invoice
+  invoiceDate DateTime
+  dueDate     DateTime?
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  subtotal    Float
+  taxAmount   Float    @default(0)
+  totalAmount Float
+  paidAmount  Float    @default(0)
+  status      String   @default("UNPAID") // UNPAID / PARTIAL / PAID
+  notes       String?
+  imageUrl    String?                   // scanned copy (optional)
+  voidedAt    DateTime?                 // set when cancelled; stock was reversed
+  voidReason  String?
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  items       SupplierInvoiceItem[]
+  vouchers    PaymentVoucher[]
+
+  @@unique([supplierId, invoiceNo])     // the same invoice cannot be stocked in twice
+}
+
+model SupplierInvoiceItem {
+  id              String         @id @default(cuid())
+  description     String
+  sku             String?
+  category        String?
+  quantity        Float
+  unitCost        Float
+  total           Float
+  invoiceId       String
+  invoice         SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+}
+
+model PaymentVoucher {
+  id                String   @id @default(cuid())
+  number            String   @unique    // PV20261111001
+  payee             String
+  purpose           String?
+  amount            Float
+  method            String   @default("CASH")
+  reference         String?
+  notes             String?
+  paidAt            DateTime @default(now())
+  createdAt         DateTime @default(now())
+  createdById       String?
+  supplierInvoiceId String?
+  voidedAt          DateTime?            // set when cancelled; amount no longer counts
+  voidReason        String?
+  supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
 }

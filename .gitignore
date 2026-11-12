@@ -45,3 +45,4 @@ next-env.d.ts
 /prisma/template.db
 public/uploads/
 /data/
+public/ocr/
