@@ -151,6 +151,30 @@ export async function PATCH(
       return NextResponse.json(redactOrder(updated, owner));
     }
 
+    // Staff typed the buyer's details (e.g. after looking the TIN up by NRIC): used when submitting to LHDN.
+    if (action === "save_buyer") {
+      if (!order.invoiceNumber) return NextResponse.json({ error: "Generate the invoice first" }, { status: 400 });
+      if (order.eInvoiceUuid && !["invalid", "cancelled"].includes((order.eInvoiceStatus || "").toLowerCase())) {
+        return NextResponse.json({ error: "Already submitted to LHDN" }, { status: 409 });
+      }
+      const idType = String(body.idType || "NRIC").toUpperCase();
+      const idNo = String(body.idNo || "").toUpperCase().replace(/[\s-]/g, "");
+      const tin = String(body.tin || "").toUpperCase().replace(/\s/g, "");
+      const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 150);
+      if (!["NRIC", "PASSPORT", "BRN", "ARMY"].includes(idType)) return NextResponse.json({ error: "Invalid ID type" }, { status: 400 });
+      if (!/^[A-Z0-9]{6,20}$/.test(tin)) return NextResponse.json({ error: "TIN looks wrong" }, { status: 400 });
+      if (idType === "NRIC" ? !/^\d{12}$/.test(idNo) : !/^[A-Z0-9]{5,20}$/.test(idNo)) {
+        return NextResponse.json({ error: "ID number looks wrong" }, { status: 400 });
+      }
+      if (name.length < 2) return NextResponse.json({ error: "Name required" }, { status: 400 });
+      const updated = await prisma.workOrder.update({
+        where: { id },
+        data: { buyerRequestedAt: new Date(), buyerName: name, buyerTin: tin, buyerIdType: idType, buyerIdNo: idNo },
+        include,
+      });
+      return NextResponse.json(redactOrder(updated, owner));
+    }
+
     if (action === "save_einvoice") {
       const uuid = String(body.uuid || "").trim();
       const longId = String(body.longId || "").trim() || null;

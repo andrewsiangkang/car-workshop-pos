@@ -8,6 +8,7 @@ import {
   submitDocument,
   payableOf,
   issueStamp,
+  buyerForOrder,
 } from "@/lib/myinvois";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
       invoiceNumber: order.invoiceNumber,
       ...issueStamp(),
       supplier,
-      customer: { name: order.customer?.name || "General Public", tin: order.customer?.tin, phone: order.customer?.phone },
+      customer: buyerForOrder(order), // the customer's own details if they sent them by QR
       lines: order.items.map((i) => ({
         description: i.description,
         quantity: i.quantity,

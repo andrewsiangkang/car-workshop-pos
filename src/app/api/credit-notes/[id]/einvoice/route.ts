@@ -8,6 +8,8 @@ import {
   submitDocument,
   payableOf,
   issueStamp,
+  buyerForOrder,
+  type Buyer,
 } from "@/lib/myinvois";
 
 export const dynamic = "force-dynamic";
@@ -41,13 +43,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
     const o = cn.workOrder;
     let reference: { number: string; uuid: string } | null = null;
-    let customer: { name: string; tin: string | null; phone: string | null } = {
+    let customer: Buyer = {
       name: o.customer?.name || "General Public",
       tin: o.customer?.tin ?? null,
       phone: o.customer?.phone ?? null,
     };
     if (o.eInvoiceUuid && isLive(o.eInvoiceStatus) && o.invoiceNumber) {
       reference = { number: o.invoiceNumber, uuid: o.eInvoiceUuid };
+      customer = buyerForOrder(o); // same buyer as the original e-Invoice
     } else if (o.consolidatedId) {
       const con = await prisma.consolidatedInvoice.findUnique({ where: { id: o.consolidatedId } });
       if (con?.eInvoiceUuid && isLive(con.eInvoiceStatus)) {

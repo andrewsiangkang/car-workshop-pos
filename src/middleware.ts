@@ -62,6 +62,9 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/setup") ||
     pathname.startsWith("/api/auth") ||
+    // v0.2.9: customer e-Invoice request page opened from the QR code (no login; unguessable link)
+    pathname.startsWith("/e-invoice/") ||
+    pathname.startsWith("/api/public/") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     (STATIC_FILE.test(pathname) && !pathname.startsWith("/api/"));

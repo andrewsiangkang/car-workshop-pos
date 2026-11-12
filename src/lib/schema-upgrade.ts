@@ -46,6 +46,19 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   // v0.2.5 — other payment methods ticked as checked; cash vouchers paid from the drawer
   { table: "CashShift", column: "reconciled", ddl: "TEXT" },
   { table: "PaymentVoucher", column: "shiftId", ddl: `TEXT REFERENCES "CashShift" ("id") ON DELETE SET NULL ON UPDATE CASCADE` },
+  // v0.2.9 — buyer e-Invoice details sent through the QR code on the invoice / receipt
+  { table: "WorkOrder", column: "eInvoiceToken", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerRequestedAt", ddl: "DATETIME" },
+  { table: "WorkOrder", column: "buyerName", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerTin", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerIdType", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerIdNo", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerEmail", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerPhone", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerAddress", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerPostcode", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerCity", ddl: "TEXT" },
+  { table: "WorkOrder", column: "buyerStateCode", ddl: "TEXT" },
 ];
 
 // 【中文】新版本新增的表（含索引）。
@@ -247,6 +260,15 @@ export function ensureSchema() {
           sql.push(`ALTER TABLE "${c.table}" ADD COLUMN "${c.column}" ${c.ddl}`);
           names.push(`${c.table}.${c.column}`);
         }
+      }
+      // v0.2.9 — the QR token must be unique (ALTER TABLE cannot add UNIQUE, so use an index).
+      const woCols = cache.get("WorkOrder");
+      const tokenIdx = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+        `SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'WorkOrder_eInvoiceToken_key'`
+      );
+      if (tokenIdx.length === 0 && woCols) {
+        sql.push(`CREATE UNIQUE INDEX "WorkOrder_eInvoiceToken_key" ON "WorkOrder"("eInvoiceToken")`);
+        names.push("index WorkOrder_eInvoiceToken_key");
       }
       if (sql.length === 0) {
         try { fs.rmSync(statusFile(), { force: true }); } catch {}

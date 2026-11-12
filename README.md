@@ -147,6 +147,7 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
   - **手机 / 平板连接**：Settings → Phone / Tablet 显示这台电脑的地址（例如 http://192.168.1.5:端口）和二维码，手机连同一个 Wi-Fi 即可打开。
 - **v0.2.6 自动登出**：5 分钟没有任何操作（鼠标、键盘、触屏、滚动）就自动登出；最后 30 秒弹出提醒，可点 Stay Logged In 继续。多个窗口共用同一个计时，电脑睡眠后醒来会立刻登出。登出不会关柜，也不影响已保存的数据。时间在 `src/lib/idle.ts` 修改。
 - **v0.2.7 远程开单（店外使用）**：用 Tailscale（免费私人网络）。电脑和手机都装 Tailscale 并登录同一个账号，Settings → Phone / Tablet 会显示电脑的 Tailscale 地址和二维码，在外面打开手机上的 Tailscale 再用浏览器访问就能开单。程序现在用固定端口（正式版 3210，演示版 3211，被占用时才用随机端口），所以地址不会每次启动都变；也可以用环境变量 `WORKSHOP_PORT` 指定。**不要**在路由器上做端口转发，也不要放到公共隧道上。
+- **v0.2.9 顾客扫码申请电子发票**：发票和收据底部多了一个二维码（Need an e-Invoice?）。顾客用手机扫码，在页面（English / 中文 / BM）填写自己的名字、TIN、证件号（IC / 护照 / SSM / 军人证）、地址、Email，提交后员工在该发票页（Invoice Preview → LHDN MyInvois e-Invoice）会看到顾客资料，点 **Submit to LHDN** 就用顾客资料开电子发票（之后的 Credit Note 也用同一买家）。顾客提交了资料的发票不会被并入每月合并电子发票，月结页会列出这些待处理发票。链接里是随机码，不是发票号，别人猜不到；开单后还没提交 LHDN 前，顾客可重新提交更正。**注意**：二维码链接是这台电脑的店内 Wi-Fi 地址（如 http://192.168.1.5:3210/e-invoice/…），顾客手机必须连上店里的 Wi-Fi 才能打开；用手机流量扫是打不开的。可用环境变量 `WORKSHOP_PUBLIC_URL` 指定二维码使用的地址。旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。
 - 老板可在 Counter 页查看历史结算记录。
 - 所有金额框都是手动输入，没有上下箭头。
 - 旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。

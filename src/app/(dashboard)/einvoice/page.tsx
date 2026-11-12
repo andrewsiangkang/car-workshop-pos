@@ -106,6 +106,20 @@ export default async function EInvoiceMonthlyPage({
             These were invoiced after the consolidated e-Invoice was sent. Submit them individually from each invoice page.
           </div>
         )}
+        {p.waitingBuyer.length > 0 && (
+          <div className="border-b border-slate-100 px-5 py-3 text-sm text-amber-800">
+            <div className="font-medium">
+              {p.waitingBuyer.length} invoice(s) are not in this consolidated e-Invoice: the customer sent their own details, so submit an individual e-Invoice from each invoice page.
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-4">
+              {p.waitingBuyer.map((w) => (
+                <Link key={w.orderId} href={`/work-orders/${w.orderId}/invoice`} className="text-blue-700 hover:underline">
+                  {w.invoiceNumber} ({w.customer})
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         {p.lines.length === 0 ? (
           <p className="px-5 py-6 text-sm text-slate-400">Nothing outstanding for {month}.</p>
         ) : (

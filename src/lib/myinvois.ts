@@ -142,13 +142,55 @@ const subtotal = (p: TaxPart) => ({
 
 const GENERAL_PUBLIC = { name: "General Public", tin: null as string | null, phone: null as string | null };
 
+/**
+ * The buyer on an e-Invoice. Only name / TIN / phone are needed for a normal walk-in; the rest
+ * is filled when the customer sent their own details through the QR code (v0.2.9).
+ */
+export type Buyer = {
+  name: string;
+  tin?: string | null;
+  phone?: string | null;
+  idType?: string | null; // NRIC / PASSPORT / BRN / ARMY
+  idNo?: string | null;
+  email?: string | null;
+  address?: string | null;
+  postcode?: string | null;
+  city?: string | null;
+  stateCode?: string | null;
+};
+
+/** Buyer for a work order: the details the customer sent by QR if any, otherwise the customer record. */
+export function buyerForOrder(o: {
+  customer?: { name: string; tin: string | null; phone: string | null } | null;
+  buyerRequestedAt?: Date | null;
+  buyerName?: string | null; buyerTin?: string | null; buyerIdType?: string | null; buyerIdNo?: string | null;
+  buyerEmail?: string | null; buyerPhone?: string | null; buyerAddress?: string | null;
+  buyerPostcode?: string | null; buyerCity?: string | null; buyerStateCode?: string | null;
+}): Buyer {
+  if (o.buyerRequestedAt && o.buyerTin && o.buyerName) {
+    return {
+      name: o.buyerName,
+      tin: o.buyerTin,
+      phone: o.buyerPhone || o.customer?.phone,
+      idType: o.buyerIdType,
+      idNo: o.buyerIdNo,
+      email: o.buyerEmail,
+      address: o.buyerAddress,
+      postcode: o.buyerPostcode,
+      city: o.buyerCity,
+      stateCode: o.buyerStateCode,
+    };
+  }
+  return { name: o.customer?.name || "General Public", tin: o.customer?.tin, phone: o.customer?.phone };
+}
+
 export function buildUblDocument(p: {
   typeCode: "01" | "02"; // 01 invoice, 02 credit note
   number: string;
   issueDate: string;
   issueTime: string;
   supplier: Supplier;
-  customer: { name: string; tin?: string | null; phone?: string | null };
+  customer: Buyer;
   lines: UblLine[];
   billingReference?: { number: string; uuid: string };
 }) {
@@ -223,18 +265,22 @@ export function buildUblDocument(p: {
           PartyIdentification: [
             // EI00000000010 = LHDN general-public TIN (only valid when buyer has no TIN).
             { ID: [{ _: cus.tin || "EI00000000010", schemeID: "TIN" }] },
-            // A second ID (BRN/NRIC/passport) is mandatory; "NA" is accepted for general public.
-            { ID: [{ _: "NA", schemeID: "BRN" }] },
+            // A second ID (BRN/NRIC/passport/army) is mandatory; "NA" is accepted for general public.
+            { ID: [{ _: cus.idNo || "NA", schemeID: cus.idNo ? cus.idType || "BRN" : "BRN" }] },
           ],
           PartyName: [{ Name: [{ _: cus.name || "General Public" }] }],
           PostalAddress: [{
-            CityName: [{ _: "NA" }],
-            CountrySubentityCode: [{ _: "17" }], // 17 = Not Applicable
-            AddressLine: [{ Line: [{ _: "NA" }] }],
+            CityName: [{ _: cus.city || "NA" }],
+            ...(cus.postcode ? { PostalZone: [{ _: cus.postcode }] } : {}),
+            CountrySubentityCode: [{ _: cus.stateCode || "17" }], // 17 = Not Applicable
+            AddressLine: [{ Line: [{ _: cus.address || "NA" }] }],
             Country: [{ IdentificationCode: [{ _: "MYS", listID: "ISO3166-1", listAgencyID: "6" }] }],
           }],
           PartyLegalEntity: [{ RegistrationName: [{ _: cus.name || "General Public" }] }],
-          Contact: [{ Telephone: [{ _: cus.phone && cus.phone !== "N/A" ? cus.phone : "NA" }] }],
+          Contact: [{
+            Telephone: [{ _: cus.phone && cus.phone !== "N/A" ? cus.phone : "NA" }],
+            ...(cus.email ? { ElectronicMail: [{ _: cus.email }] } : {}),
+          }],
         }],
       }],
       TaxTotal: [{ TaxAmount: cur(tax), TaxSubtotal: [...buckets.values()].map(subtotal) }],
@@ -265,7 +311,7 @@ export function buildInvoiceJson(params: {
   issueDate: string;
   issueTime: string;
   supplier: Supplier;
-  customer: { name: string; tin?: string | null; phone?: string | null };
+  customer: Buyer;
   lines: { description: string; quantity: number; unitPrice: number; total: number; type: string }[];
   discount: number;
   taxRate: number;  // SST % fixed on the invoice (0 = not SST-registered)
@@ -301,7 +347,7 @@ export function buildCreditNoteJson(p: {
   issueDate: string;
   issueTime: string;
   supplier: Supplier;
-  customer: { name: string; tin?: string | null; phone?: string | null };
+  customer: Buyer;
   originalInvoiceNumber: string;
   reference: { number: string; uuid: string };
   reason: string;
@@ -391,6 +437,31 @@ export async function submitDocument(doc: ReturnType<typeof buildUblDocument>, c
     return { ok: false, status: 400, detail: data.rejectedDocuments?.[0] || data };
   }
   return { ok: true, submissionUID: data.submissionUID, uuid: accepted.uuid, raw: data };
+}
+
+export type TinSearch =
+  | { ok: true; tin: string }
+  | { ok: false; status: number; message: string };
+
+/**
+ * Ask LHDN for a taxpayer's TIN from their ID (NRIC / passport / BRN / army).
+ * Uses the same Client ID / Secret as submitting. LHDN limits this to about 60 calls a minute.
+ */
+export async function searchTin(idType: string, idValue: string, name?: string): Promise<TinSearch> {
+  const { base } = await getMyInvoisConfig();
+  const token = await getAccessToken();
+  const q = new URLSearchParams({ idType, idValue });
+  if (name) q.set("taxpayerName", name);
+  const res = await fetch(`${base}/api/v1.0/taxpayer/search/tin?${q.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data?.tin) return { ok: true, tin: String(data.tin) };
+  const message =
+    res.status === 404 ? "No TIN found for this ID. The customer may not have a TIN yet, or the ID / name is different."
+    : res.status === 429 ? "Too many lookups. Wait a minute and try again."
+    : data?.error?.message || data?.message || `LHDN returned ${res.status}`;
+  return { ok: false, status: res.status, message };
 }
 
 export async function getSubmissionStatus(submissionUID: string) {

@@ -69,8 +69,14 @@ export async function consolidationPreview(month: string) {
   });
 
   const lines: ConsolidationLine[] = [];
+  const waitingBuyer: Array<{ orderId: string; invoiceNumber: string; customer: string; total: number }> = [];
   for (const o of orders) {
     if (o.eInvoiceUuid && isLive(o.eInvoiceStatus)) continue; // e-Invoiced individually
+    if (o.buyerRequestedAt) {
+      // The customer sent their own details by QR: issue them an individual e-Invoice, do not consolidate.
+      waitingBuyer.push({ orderId: o.id, invoiceNumber: o.invoiceNumber!, customer: o.buyerName || o.customer?.name || "", total: o.totalAmount });
+      continue;
+    }
     const pending = o.creditNotes.filter((c) => !c.eInvoiceUuid || !isLive(c.eInvoiceStatus));
     const credited = money(pending.reduce((s, c) => s + c.amount, 0));
     const creditedTax = money(pending.reduce((s, c) => s + c.taxAmount, 0));
@@ -105,6 +111,7 @@ export async function consolidationPreview(month: string) {
     isPast: month < currentMonth(),
     lines,
     reportable,
+    waitingBuyer, // invoices whose buyer asked for an individual e-Invoice that is not submitted yet
     totals: {
       count: reportable.length,
       net: money(reportable.reduce((s, l) => s + l.net, 0)),
