@@ -129,7 +129,14 @@ export async function PATCH(
         if (!cur) throw new UserError("Work order not found");
         const remaining = money(Math.max(0, cur.totalAmount - cur.creditedAmount - cur.paidAmount));
         if (remaining <= 0) throw new UserError("This work order is fully paid");
-        const rows = requestedPayments.map((row: Record<string, unknown>) => {
+        type SplitPaymentRow = {
+          amount: number;
+          method: string;
+          tendered: number | null;
+          changeGiven: number | null;
+          reference: string | null;
+        };
+        const rows: SplitPaymentRow[] = requestedPayments.map((row: Record<string, unknown>) => {
           const method = PAYMENT_METHODS.includes(String(row.method)) ? String(row.method) : "CASH";
           const amount = row.amount === undefined || row.amount === "" ? remaining : money(Number(row.amount));
           if (!Number.isFinite(amount) || amount <= 0) throw new UserError("Every payment amount must be greater than zero");
@@ -144,7 +151,7 @@ export async function PATCH(
           }
           return { amount, method, tendered, changeGiven, reference: String(row.reference || "").slice(0, 100) || null };
         });
-        const total = money(rows.reduce<number>((sum, row) => sum + row.amount, 0));
+        const total = money(rows.reduce<number>((sum: number, row: SplitPaymentRow) => sum + row.amount, 0));
         if (total > remaining) throw new UserError(`Split payment total RM ${total.toFixed(2)} cannot exceed remaining balance RM ${remaining.toFixed(2)}`);
         const receiptNumber = cur.receiptNumber || (await nextDocNumber("RC", "receiptNumber", tx));
         await tx.payment.createMany({
