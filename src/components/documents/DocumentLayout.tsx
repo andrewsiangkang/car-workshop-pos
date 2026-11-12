@@ -276,7 +276,7 @@ export function DocumentLayout({ data }: { data: DocData }) {
         </div>
       )}
 
-      {data.type === "invoice" && data.eInvoice && (
+      {(data.type === "invoice" || data.type === "receipt") && data.eInvoice && (
         <div className="mt-8 flex items-start gap-6 border-t border-slate-200 pt-6">
           <div>
             {data.eInvoice.longId ? (
