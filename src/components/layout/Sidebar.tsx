@@ -130,7 +130,7 @@ export function Sidebar() {
                 {name || "User"} · {isOwner ? "Boss" : "Staff"}
               </div>
               Local · Data stored on this computer
-              <div className="mt-1 text-slate-400">v0.2.2</div>
+              <div className="mt-1 text-slate-400">v0.2.3</div>
             </div>
           </div>
         </div>
