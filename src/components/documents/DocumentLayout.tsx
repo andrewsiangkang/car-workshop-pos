@@ -48,6 +48,7 @@ export type DocData = {
   taxScope?: string;
   taxAmount?: number;
   totalAmount: number;
+  roundingAdjustment?: number;
   paidAmount?: number;
   notes?: string | null;
   paymentMethod?: string | null;
@@ -213,6 +214,18 @@ export function DocumentLayout({ data }: { data: DocData }) {
                 Service Tax {data.taxRate}%{data.taxScope === "LABOR" ? " (on labour)" : ""}
               </span>
               <span>{formatCurrency(data.taxAmount ?? 0)}</span>
+            </div>
+          </>
+        )}
+        {data.type === "receipt" && Math.abs(data.roundingAdjustment ?? 0) > 0.0001 && (
+          <>
+            <div className="flex justify-between border-t border-slate-100 pt-1.5 text-amber-700">
+              <span>Rounding Adjustment</span>
+              <span>{(data.roundingAdjustment ?? 0) > 0 ? "+" : ""}{formatCurrency(data.roundingAdjustment ?? 0)}</span>
+            </div>
+            <div className="flex justify-between text-base font-bold text-slate-900">
+              <span>Rounded Cash Total</span>
+              <span>{formatCurrency(data.totalAmount + (data.roundingAdjustment ?? 0))}</span>
             </div>
           </>
         )}

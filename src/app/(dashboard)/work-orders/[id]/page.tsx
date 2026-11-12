@@ -26,7 +26,7 @@ export default async function WorkOrderDetailPage({
   if (!order) notFound();
   const counterOpen = !!(await getOpenShift());
 
-  const remaining = Math.max(0, order.totalAmount - order.creditedAmount - order.paidAmount);
+  const remaining = Math.max(0, order.totalAmount + (order.roundingAdjustment || 0) - order.creditedAmount - order.paidAmount);
   const isLive = (s: string | null) => !["invalid", "cancelled"].includes((s || "").toLowerCase());
   const consolidated = order.consolidatedId
     ? await prisma.consolidatedInvoice.findUnique({ where: { id: order.consolidatedId } })

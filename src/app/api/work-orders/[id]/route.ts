@@ -12,6 +12,14 @@ export const dynamic = "force-dynamic";
 
 const include = { customer: true, vehicle: true, items: true, payments: true };
 
+/** Malaysia BNM nearest-5-sen rule, applied to the final bill in integer sen. */
+function malaysiaRoundingAdjustmentCents(totalCents: number): number {
+  const lastDigit = ((totalCents % 10) + 10) % 10;
+  if (lastDigit === 1 || lastDigit === 2 || lastDigit === 6 || lastDigit === 7) return -lastDigit % 5;
+  if (lastDigit === 3 || lastDigit === 4 || lastDigit === 8 || lastDigit === 9) return 5 - (lastDigit % 5);
+  return 0;
+}
+
 /** Error thrown inside a transaction that should reach the user as a 400. */
 class UserError extends Error {}
 
@@ -124,10 +132,11 @@ export async function PATCH(
         }
         const cur = await tx.workOrder.findUnique({
           where: { id },
-          select: { totalAmount: true, paidAmount: true, creditedAmount: true, receiptNumber: true },
+          select: { totalAmount: true, paidAmount: true, creditedAmount: true, receiptNumber: true, roundingAdjustment: true },
         });
         if (!cur) throw new UserError("Work order not found");
-        const remainingCents = Math.max(0, Math.round((cur.totalAmount - cur.creditedAmount - cur.paidAmount + Number.EPSILON) * 100));
+        const effectiveTotalCents = Math.round((cur.totalAmount + cur.roundingAdjustment + Number.EPSILON) * 100);
+        const remainingCents = Math.max(0, effectiveTotalCents - Math.round(cur.creditedAmount * 100) - Math.round(cur.paidAmount * 100));
         const remaining = remainingCents / 100;
         if (remaining <= 0) throw new UserError("This work order is fully paid");
         type SplitPaymentRow = {
@@ -152,9 +161,36 @@ export async function PATCH(
           }
           return { amount, method, tendered, changeGiven, reference: String(row.reference || "").slice(0, 100) || null };
         });
-        const totalCents = rows.reduce<number>((sum: number, row: SplitPaymentRow) => sum + Math.round(row.amount * 100), 0);
+        let totalCents = rows.reduce<number>((sum: number, row: SplitPaymentRow) => sum + Math.round(row.amount * 100), 0);
+        if (totalCents > remainingCents) throw new UserError(`Payment amount RM ${(totalCents / 100).toFixed(2)} cannot exceed remaining balance RM ${remaining.toFixed(2)}`);
+
+        const roundingMode = String(body.roundingMode || "NONE");
+        let roundingAdjustmentCents = 0;
+        if (roundingMode !== "NONE") {
+          if (totalCents !== remainingCents) {
+            throw new UserError("Rounding is only available when payment settles the full remaining balance");
+          }
+          if (roundingMode === "AUTO") {
+            roundingAdjustmentCents = malaysiaRoundingAdjustmentCents(remainingCents);
+          } else if (roundingMode === "MANUAL") {
+            roundingAdjustmentCents = Math.round(Number(body.roundingAdjustment || 0) * 100);
+            if (Math.abs(roundingAdjustmentCents) > 2 || (remainingCents + roundingAdjustmentCents) % 5 !== 0 || roundingAdjustmentCents !== malaysiaRoundingAdjustmentCents(remainingCents)) {
+              throw new UserError("Manual rounding must be between -RM0.02 and +RM0.02 and result in a RM0.05 multiple");
+            }
+          } else {
+            throw new UserError("Invalid rounding mode");
+          }
+          if (remainingCents + roundingAdjustmentCents <= 0) throw new UserError("Invalid rounded payment amount");
+          // Apply the rounding difference to the first payment row regardless of
+          // method, so cash, card, e-wallet, bank transfer and split payments reconcile.
+          rows[0].amount = (Math.round(rows[0].amount * 100) + roundingAdjustmentCents) / 100;
+          if (rows[0].tendered !== null) {
+            if (rows[0].tendered + 0.00001 < rows[0].amount) throw new UserError("Cash received is less than the rounded cash amount");
+            rows[0].changeGiven = money(rows[0].tendered - rows[0].amount);
+          }
+          totalCents += roundingAdjustmentCents;
+        }
         const total = totalCents / 100;
-        if (totalCents > remainingCents) throw new UserError(`Payment amount RM ${total.toFixed(2)} cannot exceed remaining balance RM ${remaining.toFixed(2)}`);
         const receiptNumber = cur.receiptNumber || (await nextDocNumber("RC", "receiptNumber", tx));
         await tx.payment.createMany({
           data: rows.map((row) => ({
@@ -170,11 +206,16 @@ export async function PATCH(
         });
         return tx.workOrder.update({
           where: { id },
-          data: { receiptNumber, paidAmount: money(cur.paidAmount + total), paidAt: new Date() },
+          data: {
+            receiptNumber,
+            roundingAdjustment: money(cur.roundingAdjustment + roundingAdjustmentCents / 100),
+            paidAmount: money(cur.paidAmount + total),
+            paidAt: new Date(),
+          },
           include,
         });
       });
-      await writeAuditLog({ actor, request, action: "PAYMENT_RECORDED", entityType: "WorkOrder", entityId: id, summary: `Payment recorded for ${order.orderNumber}`, details: { payments: requestedPayments.map((row: Record<string, unknown>) => ({ method: row.method, amount: row.amount })), cumulativePaidAmount: updated.paidAmount, receiptNumber: updated.receiptNumber } });
+      await writeAuditLog({ actor, request, action: "PAYMENT_RECORDED", entityType: "WorkOrder", entityId: id, summary: `Payment recorded for ${order.orderNumber}`, details: { payments: requestedPayments.map((row: Record<string, unknown>) => ({ method: row.method, amount: row.amount })), roundingAdjustment: updated.roundingAdjustment, cumulativePaidAmount: updated.paidAmount, receiptNumber: updated.receiptNumber } });
       return NextResponse.json(redactOrder(updated, owner));
     }
 

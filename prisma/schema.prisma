@@ -99,6 +99,7 @@ model WorkOrder {
   mileageOut    Int?
 
   totalAmount   Float           @default(0)
+  roundingAdjustment Float      @default(0) // cash-only rounding applied at settlement
   partsAmount   Float           @default(0)
   laborAmount   Float           @default(0)
   discount      Float           @default(0)

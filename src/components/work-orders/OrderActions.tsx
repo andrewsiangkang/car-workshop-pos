@@ -15,7 +15,6 @@ const toCents = (value: string | number) => {
   return Number.isFinite(parsed) ? Math.round((parsed + Number.EPSILON) * 100) : 0;
 };
 const fromCents = (value: number) => value / 100;
-
 export function OrderActions({
   id,
   status,
@@ -81,15 +80,28 @@ export function OrderActions({
     return sum + Math.max(0, tenderedCents - amountCents);
   }, 0);
   const splitTotal = fromCents(splitTotalCents);
-  const splitChange = fromCents(splitChangeCents);
+  const settlesBalance = splitTotalCents === remainingCents;
+  const lastDigit = ((remainingCents % 10) + 10) % 10;
+  const automaticAdjustmentCents = [1, 2, 6, 7].includes(lastDigit)
+    ? -(lastDigit % 5)
+    : [3, 4, 8, 9].includes(lastDigit) ? 5 - (lastDigit % 5) : 0;
+  const roundingEligible = splits.length > 0 && settlesBalance;
+  const roundingAdjustmentCents = roundingEligible ? automaticAdjustmentCents : 0;
+  const roundedPaymentCents = remainingCents + roundingAdjustmentCents;
+  const effectiveSplitChangeCents = roundingEligible && splits[0]?.method === "CASH"
+    ? splitChangeCents - roundingAdjustmentCents
+    : splitChangeCents;
+  const splitChange = fromCents(Math.max(0, effectiveSplitChangeCents));
   const canPay = counterOpen && splits.length > 0 &&
-    splits.every((row) => toCents(row.amount) > 0 &&
-      (row.method !== "CASH" || toCents(row.tendered.trim() ? row.tendered : row.amount) >= toCents(row.amount))) &&
+    splits.every((row, index) => toCents(row.amount) > 0 &&
+      (row.method !== "CASH" || toCents(row.tendered.trim() ? row.tendered : row.amount) >= toCents(row.amount) + (roundingEligible && index === 0 ? roundingAdjustmentCents : 0))) &&
     splitTotalCents > 0 && splitTotalCents <= remainingCents;
 
   async function recordPayment() {
     const ok = await call({
       action: "record_payment",
+      roundingMode: roundingEligible ? "AUTO" : "NONE",
+      roundingAdjustment: fromCents(roundingAdjustmentCents),
       payments: splits.map((row) => ({
         amount: row.amount,
         method: row.method,
@@ -203,6 +215,14 @@ export function OrderActions({
                 <div className={splitTotalCents > remainingCents ? "text-red-600" : splitChangeCents > 0 ? "font-semibold text-emerald-700" : "text-slate-500"}>
                   {splitTotalCents > remainingCents ? "Payment amount exceeds balance" : splitChangeCents > 0 ? `Change to return to customer: ${formatCurrency(splitChange)}` : "No change due"}
                 </div>
+                {roundingEligible && (
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left">
+                    <div className="mb-2 font-medium text-slate-700">Payment Rounding (nearest RM0.05)</div>
+                    <div className="text-xs text-slate-600">Automatic Malaysia 5-sen rounding (BNM table)</div>
+                    <div className="mt-2 text-xs text-slate-600">Rounding Adjustment: <strong>{formatCurrency(fromCents(roundingAdjustmentCents))}</strong> · Final cash amount: <strong>{formatCurrency(fromCents(roundedPaymentCents))}</strong></div>
+                  </div>
+                )}
+                {!roundingEligible && <div className="text-xs text-slate-500">Rounding is available when this payment settles the full remaining balance.</div>}
               </div>
               <button disabled={busy || !canPay} onClick={recordPayment} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>Record Split Payment</button>
             </div>

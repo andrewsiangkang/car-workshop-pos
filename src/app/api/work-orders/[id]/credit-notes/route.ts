@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
       const newCredited = money(o.creditedAmount + amount);
       const newPaid = money(o.paidAmount - refundAmount);
-      const newTotalDue = money(o.totalAmount - newCredited);
+      const newTotalDue = money(o.totalAmount + (o.roundingAdjustment || 0) - newCredited);
       if (newPaid > newTotalDue + 0.005) {
         throw new UserError(
           `Customer would have paid RM ${(newPaid - newTotalDue).toFixed(2)} too much. Refund at least RM ${(refundAmount + newPaid - newTotalDue).toFixed(2)}.`

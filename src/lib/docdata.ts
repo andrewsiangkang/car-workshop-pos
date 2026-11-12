@@ -94,6 +94,7 @@ export async function loadDocData(
       taxScope: order.taxScope,
       taxAmount: order.taxAmount,
       totalAmount: order.totalAmount,
+      roundingAdjustment: order.roundingAdjustment,
       paidAmount: order.paidAmount,
       notes: type === "quotation" ? order.diagnosis : null,
       paymentMethod: last ? last.method : null,
