@@ -61,6 +61,10 @@ export type DocData = {
   }>;
   footer?: string | null;
   eInvoice?: { uuid: string; longId?: string | null; portal?: string } | null;
+  /** Customer scans this on the shop Wi-Fi to fill their own e-Invoice details. */
+  buyerRequestUrl?: string | null;
+  submissionUid?: string | null;
+  eInvoiceStatus?: string | null;
 };
 
 const PAY_LABEL: Record<string, string> = { CASH: "Cash", CARD: "Card", TRANSFER: "Bank Transfer", TNG: "Touch 'n Go", OTHER: "Other" };
@@ -274,10 +278,37 @@ export function DocumentLayout({ data }: { data: DocData }) {
         </div>
       )}
 
+      {/* Customer request QR — fill TIN before staff submit to LHDN */}
+      {(data.type === "invoice" || data.type === "receipt") && data.buyerRequestUrl && !data.eInvoice && (
+        <div className="mt-8 flex items-start gap-6 border-t border-slate-200 pt-6">
+          <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={"/api/qr?text=" + encodeURIComponent(data.buyerRequestUrl)}
+              alt="Request e-Invoice QR"
+              width={140}
+              height={140}
+              className="rounded border border-slate-200"
+            />
+          </div>
+          <div className="text-xs text-slate-500">
+            <div className="mb-1 font-semibold text-slate-700">Request e-Invoice (customer)</div>
+            <div className="mt-1 text-slate-600">
+              Scan this QR on the shop Wi-Fi to fill in your TIN / ID for an individual LHDN e-Invoice.
+            </div>
+            <div className="mt-2 text-slate-400">
+              顾客扫码填写 e-Invoice 资料（需连店内 Wi-Fi）
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LHDN validation QR — after Long ID */}
       {(data.type === "invoice" || data.type === "receipt") && data.eInvoice && (
         <div className="mt-8 flex items-start gap-6 border-t border-slate-200 pt-6">
           <div>
             {data.eInvoice.longId ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={"/api/qr?text=" + encodeURIComponent(
                   (data.eInvoice.portal || "https://myinvois.hasil.gov.my") + "/" + data.eInvoice.uuid + "/share/" + data.eInvoice.longId

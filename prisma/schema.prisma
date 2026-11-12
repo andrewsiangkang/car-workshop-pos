@@ -116,6 +116,7 @@ model WorkOrder {
   eInvoiceUuid  String?
   eInvoiceLongId String?
   eInvoiceStatus String?        // pending / valid / invalid / cancelled
+  submissionUid  String?        // LHDN submission batch id (needed to poll status after refresh)
 
   // v0.2.9 — buyer scans the QR on the invoice / receipt and fills in their own e-Invoice details
   eInvoiceToken     String?   @unique // random code in the QR link (not guessable)

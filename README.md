@@ -46,6 +46,11 @@ Database starts completely empty.
 
 ---
 
+## 评估与路线图
+
+- 完整评估（已做 / 缺失 / 可改进）：见 [`REPORT-v0.3.3.md`](./REPORT-v0.3.3.md)
+- 下一版任务清单：见 [`ROADMAP-v0.3.4.md`](./ROADMAP-v0.3.4.md)
+
 ## Features
 
 - Work Orders with Quotation / Invoice / Receipt
@@ -148,6 +153,8 @@ GitHub → Actions → 选 **Build DEMO installer** → Run workflow。完成后
 - **v0.2.6 自动登出**：5 分钟没有任何操作（鼠标、键盘、触屏、滚动）就自动登出；最后 30 秒弹出提醒，可点 Stay Logged In 继续。多个窗口共用同一个计时，电脑睡眠后醒来会立刻登出。登出不会关柜，也不影响已保存的数据。时间在 `src/lib/idle.ts` 修改。
 - **v0.2.7 远程开单（店外使用）**：用 Tailscale（免费私人网络）。电脑和手机都装 Tailscale 并登录同一个账号，Settings → Phone / Tablet 会显示电脑的 Tailscale 地址和二维码，在外面打开手机上的 Tailscale 再用浏览器访问就能开单。程序现在用固定端口（正式版 3210，演示版 3211，被占用时才用随机端口），所以地址不会每次启动都变；也可以用环境变量 `WORKSHOP_PORT` 指定。**不要**在路由器上做端口转发，也不要放到公共隧道上。
 - **v0.3.2 电子发票**：发票页可用顾客 NRIC / 护照 / SSM 向 LHDN 查 TIN（Find customer TIN by NRIC），保存后点 Submit to LHDN 即用该买家资料开电子发票（之后的 Credit Note 也用同一买家）。提交并拿到 Long ID 后，发票和收据底部会显示 **LHDN 验证二维码**，顾客扫码直接打开 LHDN MyInvois 上的这张电子发票。用买家资料开单的发票不会并入每月合并电子发票，月结页会列出。旧数据库启动时自动升级（会先备份）；开发环境请执行 `npx prisma db push` 和 `npx prisma generate`。
+- **v0.3.3 LHDN e-Invoice QR**：提交后**自动轮询** LHDN 状态（约 2 秒起、每 4 秒一次、最多 12 次），拿到 Long ID 即停止并刷新，发票/收据底部显示验证二维码；仍可手动 Check Status。工单会保存 `submissionUid`，刷新页面后可继续轮询。未提交 LHDN 前，发票/收据显示**顾客请求 e-Invoice**二维码（连店内 Wi-Fi 扫码填 TIN）；提交并拿到 Long ID 后改为 **LHDN 验证**二维码。发票、收据、贷项通知（Credit Note）打印页在取得 Long ID 后显示 LHDN MyInvois 验证二维码（扫码打开官方 share 链接）。无 Long ID 时发票/收据显示占位提示；Credit Note 有 Long ID 才显示二维码。QR 由本地 `/api/qr` 生成，链接格式为 `{portal}/{uuid}/share/{longId}`。
+- **v0.3.4**：版本号更新。含 v0.3.3 能力：提交后自动轮询 Long ID、工单保存 `submissionUid`（刷新可续查）、发票/收据「顾客请求 e-Invoice」与「LHDN 验证」两种二维码。评估报告见 `REPORT-v0.3.3.md`，下一阶段任务见 `ROADMAP-v0.3.4.md`。
   - 修复：关柜时现金**少了或多了**也能关柜（备注改为选填，差额照样记在结算单上）；老板的“留作明天的备用金”默认不会超过点出来的现金（以前现金少于开柜备用金时，按钮会被锁住）。关柜改为点两下确认，不再弹出浏览器对话框。
   - 修复：桌面版弹出确认 / 提示框后，输入框无法打字的问题（弹窗关闭后自动把键盘焦点还给窗口和原来的输入框）。
 - 老板可在 Counter 页查看历史结算记录。

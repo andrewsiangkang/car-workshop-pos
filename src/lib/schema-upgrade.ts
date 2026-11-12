@@ -59,6 +59,8 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
   { table: "WorkOrder", column: "buyerPostcode", ddl: "TEXT" },
   { table: "WorkOrder", column: "buyerCity", ddl: "TEXT" },
   { table: "WorkOrder", column: "buyerStateCode", ddl: "TEXT" },
+  // v0.3.3 — keep submission UID so status can be polled again after page refresh
+  { table: "WorkOrder", column: "submissionUid", ddl: "TEXT" },
 ];
 
 // 【中文】新版本新增的表（含索引）。

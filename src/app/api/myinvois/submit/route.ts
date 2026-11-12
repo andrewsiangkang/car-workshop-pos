@@ -84,7 +84,12 @@ export async function POST(request: Request) {
     }
     await prisma.workOrder.update({
       where: { id: orderId },
-      data: { eInvoiceUuid: r.uuid, eInvoiceLongId: null, eInvoiceStatus: "pending" },
+      data: {
+        eInvoiceUuid: r.uuid,
+        eInvoiceLongId: null,
+        eInvoiceStatus: "pending",
+        submissionUid: r.submissionUID || null,
+      },
     });
     return NextResponse.json({
       ok: true,

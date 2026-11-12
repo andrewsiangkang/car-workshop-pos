@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { portalUrl } from "@/lib/myinvois";
 import { MY_STATES } from "@/lib/my-states";
+import { ensureEInvoiceToken, customerBaseUrl, requestLockReason } from "@/lib/einvoice-request";
+import type { DocData } from "@/components/documents/DocumentLayout";
 
 /** Street, then "postcode city", then state, one per line. */
 export function fullAddress(
@@ -10,11 +12,11 @@ export function fullAddress(
   const state = shop.stateCode && shop.stateCode !== "17" ? MY_STATES[shop.stateCode] : null;
   return [shop.address, [shop.postcode, shop.city].filter(Boolean).join(" "), state].filter(Boolean).join("\n") || null;
 }
-import type { DocData } from "@/components/documents/DocumentLayout";
 
 export async function loadDocData(
   id: string,
-  type: "quotation" | "invoice" | "receipt"
+  type: "quotation" | "invoice" | "receipt",
+  hostHeader?: string | null
 ): Promise<{ data: DocData | null; missing: "order" | "number" | null }> {
   const order = await prisma.workOrder.findUnique({
     where: { id },
@@ -35,6 +37,18 @@ export async function loadDocData(
       : order.paidAt || order.createdAt;
   const last = order.payments[order.payments.length - 1];
 
+  // Buyer-request QR: only on invoice / receipt while LHDN has not accepted a live e-Invoice yet.
+  let buyerRequestUrl: string | null = null;
+  if (type === "invoice" || type === "receipt") {
+    const lock = requestLockReason(order);
+    if (lock === "none") {
+      const token = await ensureEInvoiceToken(order.id, order.eInvoiceToken);
+      if (token) {
+        buyerRequestUrl = `${customerBaseUrl(hostHeader || null)}/e-invoice/${token}`;
+      }
+    }
+  }
+
   return {
     missing: null,
     data: {
@@ -54,9 +68,10 @@ export async function loadDocData(
         paymentQrUrl: shop?.paymentQrUrl,
         sstNumber: shop?.sstNumber,
       },
-      customer: order.buyerRequestedAt && order.buyerName
-        ? { name: order.buyerName, phone: order.buyerPhone || order.customer.phone, tin: order.buyerTin }
-        : { name: order.customer.name, phone: order.customer.phone, tin: order.customer.tin },
+      customer:
+        order.buyerRequestedAt && order.buyerName
+          ? { name: order.buyerName, phone: order.buyerPhone || order.customer.phone, tin: order.buyerTin }
+          : { name: order.customer.name, phone: order.customer.phone, tin: order.customer.tin },
       vehicle: {
         plateNumber: order.vehicle.plateNumber,
         make: order.vehicle.make,
@@ -94,6 +109,9 @@ export async function loadDocData(
       eInvoice: order.eInvoiceUuid
         ? { uuid: order.eInvoiceUuid, longId: order.eInvoiceLongId, portal: portalUrl(shop?.myInvoisSandbox ?? true) }
         : null,
+      buyerRequestUrl,
+      submissionUid: order.submissionUid || null,
+      eInvoiceStatus: order.eInvoiceStatus || null,
     },
   };
 }

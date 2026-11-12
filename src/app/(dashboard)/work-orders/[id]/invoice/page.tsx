@@ -7,13 +7,15 @@ import { MY_STATES } from "@/lib/my-states";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { data, missing } = await loadDocData(id, "invoice");
+  const host = (await headers()).get("host");
+  const { data, missing } = await loadDocData(id, "invoice", host);
   if (missing === "order") notFound();
 
   // Details the customer sent by scanning the QR code (shown to staff before submitting to LHDN).
@@ -61,6 +63,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             orderId={id}
             initialUuid={data.eInvoice?.uuid}
             initialLongId={data.eInvoice?.longId}
+            initialSubmissionUid={data.submissionUid}
+            initialStatus={data.eInvoiceStatus}
             buyer={buyer}
           />
           <DocumentLayout data={data} />
