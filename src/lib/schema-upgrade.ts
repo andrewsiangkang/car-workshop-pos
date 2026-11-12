@@ -13,6 +13,13 @@ import { prisma } from "@/lib/prisma";
  */
 // 【中文】新版本新增的字段清单。以后给 schema.prisma 加字段，必须同时加到这里，旧店的数据库才会自动升级。
 const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
+  // v0.3.18 — international profile defaults (additive; existing shops remain Malaysia/MYR)
+  { table: "ShopProfile", column: "countryCode", ddl: "TEXT NOT NULL DEFAULT 'MY'" },
+  { table: "ShopProfile", column: "currencyCode", ddl: "TEXT NOT NULL DEFAULT 'MYR'" },
+  { table: "ShopProfile", column: "locale", ddl: "TEXT NOT NULL DEFAULT 'en-MY'" },
+  { table: "ShopProfile", column: "timeZone", ddl: "TEXT NOT NULL DEFAULT 'Asia/Kuala_Lumpur'" },
+  { table: "ShopProfile", column: "taxLabel", ddl: "TEXT NOT NULL DEFAULT 'SST'" },
+
   // v0.2 — SST
   { table: "ShopProfile", column: "sstRate", ddl: "REAL NOT NULL DEFAULT 0" },
   { table: "ShopProfile", column: "sstScope", ddl: "TEXT NOT NULL DEFAULT 'ALL'" },

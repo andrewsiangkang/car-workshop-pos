@@ -36,7 +36,7 @@ const navItems = [
   { href: "/supplier-invoices", label: "Supplier Invoices", icon: Truck, ownerOnly: true },
   { href: "/suppliers", label: "Suppliers", icon: Users, ownerOnly: true },
   { href: "/payment-vouchers", label: "Payment Vouchers", icon: ReceiptText, ownerOnly: true },
-  { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
+  { href: "/reports", label: "Business Intelligence", icon: BarChart3, ownerOnly: true },
   { href: "/audit-logs", label: "Audit Trail", icon: ClipboardList, ownerOnly: true },
   { href: "/einvoice", label: "e-Invoice (Monthly)", icon: FileStack, ownerOnly: true },
   { href: "/settings", label: "Settings", icon: Settings, ownerOnly: true },
@@ -134,7 +134,7 @@ export function Sidebar() {
                 {name || "User"} · {isOwner ? "Boss" : "Staff"}
               </div>
               Local · Data stored on this computer
-              <div className="mt-1 text-slate-400">v0.3.17</div>
+              <div className="mt-1 text-slate-400">v0.3.18</div>
             </div>
           </div>
         </div>

@@ -223,6 +223,12 @@ model Expense {
 // Shop profile for documents & e-Invoice
 model ShopProfile {
   id            String   @id @default(cuid())
+  // v0.3.18 — international business profile defaults
+  countryCode   String   @default("MY")
+  currencyCode  String   @default("MYR")
+  locale        String   @default("en-MY")
+  timeZone      String   @default("Asia/Kuala_Lumpur")
+  taxLabel      String   @default("SST")
   name          String   // shop name
   nameMs        String?  // Malay name if any
   address       String?  // street address line

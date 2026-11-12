@@ -64,6 +64,11 @@ export async function PUT(request: Request) {
 
     const data = {
       name: str(body.name, 200) || existing?.name || "Workshop",
+      countryCode: /^[A-Z]{2}$/.test(String(body.countryCode || "")) ? String(body.countryCode) : existing?.countryCode || "MY",
+      currencyCode: /^[A-Z]{3}$/.test(String(body.currencyCode || "")) ? String(body.currencyCode) : existing?.currencyCode || "MYR",
+      locale: ["en-MY", "zh-MY", "ms-MY", "en-SG", "en-AU", "en-GB", "en-US", "en-IN", "en-ID", "th-TH", "vi-VN", "ja-JP"].includes(String(body.locale)) ? String(body.locale) : existing?.locale || "en-MY",
+      timeZone: typeof body.timeZone === "string" && body.timeZone.length <= 64 ? body.timeZone : existing?.timeZone || "Asia/Kuala_Lumpur",
+      taxLabel: str(body.taxLabel, 30) || existing?.taxLabel || "SST",
       nameMs: str(body.nameMs, 200),
       address: str(body.address),
       city: str(body.city, 100),

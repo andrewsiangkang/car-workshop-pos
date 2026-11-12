@@ -45,6 +45,11 @@ type ShopForm = {
   bankAccount: string;
   paymentQrUrl: string;
   receiptFooter: string;
+  countryCode: string;
+  currencyCode: string;
+  locale: string;
+  timeZone: string;
+  taxLabel: string;
 };
 
 const emptyForm: ShopForm = {
@@ -70,6 +75,11 @@ const emptyForm: ShopForm = {
   bankAccount: "",
   paymentQrUrl: "",
   receiptFooter: "Thank you for your business. We look forward to serving you again!",
+  countryCode: "MY",
+  currencyCode: "MYR",
+  locale: "en-MY",
+  timeZone: "Asia/Kuala_Lumpur",
+  taxLabel: "SST",
 };
 
 export default function SettingsPage() {
@@ -77,7 +87,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<"basic" | "tax" | "bank" | "documents" | "backup" | "staff" | "connect">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "international" | "tax" | "bank" | "documents" | "backup" | "staff" | "connect">("basic");
   const [backupMsg, setBackupMsg] = useState("");
   const [hasSecret, setHasSecret] = useState(false);
   const [msicSearch, setMsicSearch] = useState("");
@@ -117,6 +127,11 @@ export default function SettingsPage() {
             bankAccount: data.bankAccount || "",
             paymentQrUrl: data.paymentQrUrl || "",
             receiptFooter: data.receiptFooter || "Thank you for your business. We look forward to serving you again!",
+            countryCode: data.countryCode || "MY",
+            currencyCode: data.currencyCode || "MYR",
+            locale: data.locale || "en-MY",
+            timeZone: data.timeZone || "Asia/Kuala_Lumpur",
+            taxLabel: data.taxLabel || "SST",
           });
         }
       })
@@ -228,6 +243,7 @@ export default function SettingsPage() {
       <div className="mb-6 flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 w-fit">
         {[
           { id: "basic" as const, label: "Basic Info", icon: Building2 },
+          { id: "international" as const, label: "International", icon: Search },
           { id: "tax" as const, label: "Tax / e-Invoice", icon: FileText },
           { id: "bank" as const, label: "Bank & Receipt", icon: CreditCard },
           { id: "documents" as const, label: "Document Templates", icon: FileText },
@@ -353,7 +369,38 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {activeTab === "tax" && (
+        {activeTab === "international" && (
+        <div className="max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">International Business Settings</h2>
+          <p className="mt-1 text-sm text-slate-500">Set the workshop's country, default currency, language, time zone and tax label. Existing Malaysian data remains MYR by default.</p>
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700">Country
+              <select value={form.countryCode} onChange={(e) => update("countryCode", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                <option value="MY">Malaysia</option><option value="SG">Singapore</option><option value="AU">Australia</option><option value="GB">United Kingdom</option><option value="US">United States</option><option value="IN">India</option><option value="ID">Indonesia</option><option value="TH">Thailand</option><option value="VN">Vietnam</option><option value="JP">Japan</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium text-slate-700">Default Currency
+              <select value={form.currencyCode} onChange={(e) => update("currencyCode", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                <option value="MYR">MYR — Malaysian Ringgit</option><option value="SGD">SGD — Singapore Dollar</option><option value="AUD">AUD — Australian Dollar</option><option value="GBP">GBP — Pound Sterling</option><option value="USD">USD — US Dollar</option><option value="INR">INR — Indian Rupee</option><option value="IDR">IDR — Indonesian Rupiah</option><option value="THB">THB — Thai Baht</option><option value="VND">VND — Vietnamese Dong</option><option value="JPY">JPY — Japanese Yen</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium text-slate-700">Default Language / Locale
+              <select value={form.locale} onChange={(e) => update("locale", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                <option value="en-MY">English (Malaysia)</option><option value="zh-MY">中文（马来西亚）</option><option value="ms-MY">Bahasa Melayu</option><option value="en-SG">English (Singapore)</option><option value="en-AU">English (Australia)</option><option value="en-GB">English (UK)</option><option value="en-US">English (US)</option><option value="en-IN">English (India)</option><option value="en-ID">English (Indonesia)</option><option value="th-TH">ไทย</option><option value="vi-VN">Tiếng Việt</option><option value="ja-JP">日本語</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium text-slate-700">Time Zone
+              <input value={form.timeZone} onChange={(e) => update("timeZone", e.target.value)} placeholder="Asia/Kuala_Lumpur" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Tax Label
+              <input value={form.taxLabel} onChange={(e) => update("taxLabel", e.target.value)} placeholder="SST / GST / VAT" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+              <span className="mt-1 block text-xs font-normal text-slate-500">This configures the business label only. Country-specific tax calculation and e-invoice compliance still require separate validation.</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "tax" && (
           <div className="space-y-5">
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               For official invoices and MyInvois e-Invoice. Fill in LHDN registration details.
