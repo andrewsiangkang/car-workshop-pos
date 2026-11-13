@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
+import { writeEInvoiceSubmissionLog } from "@/lib/myinvois-log";
 import { consolidationPreview, isValidMonth, currentMonth } from "@/lib/consolidation";
 import {
   getMyInvoisConfig,
@@ -75,7 +76,10 @@ export async function POST(request: Request) {
     }
 
     const r = await submitDocument(doc, number);
-    if (!r.ok) return NextResponse.json({ error: "Submission failed", detail: r.detail }, { status: r.status });
+    if (!r.ok) {
+      await writeEInvoiceSubmissionLog({ documentType: "CONSOLIDATED", documentNumber: number, status: "rejected", environment: shop.myInvoisSandbox ? "SANDBOX" : "PRODUCTION", detail: r.detail });
+      return NextResponse.json({ error: "Submission failed", detail: r.detail }, { status: r.status });
+    }
 
     // Record it and mark everything it covers, so nothing is reported twice.
     const record = await prisma.$transaction(async (tx) => {
@@ -105,6 +109,7 @@ export async function POST(request: Request) {
       return con;
     });
 
+    await writeEInvoiceSubmissionLog({ documentType: "CONSOLIDATED", documentNumber: number, entityId: record.id, submissionUid: r.submissionUID, uuid: r.uuid, status: "pending", environment: shop.myInvoisSandbox ? "SANDBOX" : "PRODUCTION" });
     if (actor) await writeAuditLog({ actor, request, action: "MYINVOIS_CONSOLIDATED_SUBMITTED", entityType: "ConsolidatedInvoice", entityId: record.id, summary: `Monthly consolidated e-Invoice submitted`, details: { month, number, orderCount: p.reportable.length, totalAmount: p.totals.total, uuid: r.uuid } });
     return NextResponse.json({ ok: true, id: record.id, number, submissionUID: r.submissionUID, uuid: r.uuid });
   } catch (e: any) {

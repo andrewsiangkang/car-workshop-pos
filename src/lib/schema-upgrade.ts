@@ -85,6 +85,40 @@ const COLUMNS: Array<{ table: string; column: string; ddl: string }> = [
 // 【中文】新版本新增的表（含索引）。
 const TABLES: Array<{ table: string; ddl: string[] }> = [
   {
+    table: "EInvoiceSubmissionLog",
+    ddl: [
+      `CREATE TABLE "EInvoiceSubmissionLog" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "documentType" TEXT NOT NULL,
+        "documentNumber" TEXT NOT NULL,
+        "entityId" TEXT,
+        "submissionUid" TEXT,
+        "uuid" TEXT,
+        "status" TEXT NOT NULL,
+        "environment" TEXT NOT NULL,
+        "errorCode" TEXT,
+        "errorMessage" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE INDEX "EInvoiceSubmissionLog_documentNumber_idx" ON "EInvoiceSubmissionLog"("documentNumber")`,
+      `CREATE INDEX "EInvoiceSubmissionLog_submissionUid_idx" ON "EInvoiceSubmissionLog"("submissionUid")`,
+      `CREATE INDEX "EInvoiceSubmissionLog_createdAt_idx" ON "EInvoiceSubmissionLog"("createdAt")`,
+    ],
+  },
+  {
+    table: "SystemMigration",
+    ddl: [
+      `CREATE TABLE "SystemMigration" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "version" TEXT NOT NULL,
+        "checksum" TEXT,
+        "appliedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE UNIQUE INDEX "SystemMigration_version_key" ON "SystemMigration"("version")`,
+    ],
+  },
+  {
     table: "LoginThrottle",
     ddl: [
       `CREATE TABLE "LoginThrottle" (
@@ -326,6 +360,10 @@ export function ensureSchema() {
         names.push("index WorkOrder_eInvoiceToken_key");
       }
       if (sql.length === 0) {
+        await prisma.$executeRawUnsafe(
+          `INSERT OR IGNORE INTO "SystemMigration" ("id", "version", "checksum") VALUES (?, ?, ?)`,
+          "migration-v0.3.29", "0.3.29", "additive-core-foundation"
+        ).catch(() => {});
         try { fs.rmSync(statusFile(), { force: true }); } catch {}
         return;
       }
@@ -339,6 +377,10 @@ export function ensureSchema() {
 
       // 3) Apply everything in one transaction: all or nothing.
       await prisma.$transaction(sql.map((q) => prisma.$executeRawUnsafe(q)));
+      await prisma.$executeRawUnsafe(
+        `INSERT OR IGNORE INTO "SystemMigration" ("id", "version", "checksum") VALUES (?, ?, ?)`,
+        "migration-v0.3.29", "0.3.29", "additive-core-foundation"
+      );
       console.log(`[schema-upgrade] applied: ${names.join(", ")} (backup: ${file})`);
       try { fs.rmSync(statusFile(), { force: true }); } catch {}
     })().catch((e) => {

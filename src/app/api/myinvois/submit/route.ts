@@ -12,6 +12,8 @@ import {
 } from "@/lib/myinvois";
 import { friendlyMyInvoisError, formatFriendlyError } from "@/lib/myinvois-errors";
 import { writeAuditLog } from "@/lib/audit";
+import { validateMyInvoisBuyer } from "@/lib/myinvois-buyer-core.mjs";
+import { writeEInvoiceSubmissionLog } from "@/lib/myinvois-log";
 
 export const dynamic = "force-dynamic";
 
@@ -65,11 +67,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Fill in Settings → Shop first: ${missing.join(", ")}` }, { status: 400 });
     }
 
+    // Defense in depth: validate at the submission boundary and again in the UBL builder.
+    const buyer = buyerForOrder(order);
+    const buyerValidation = validateMyInvoisBuyer(buyer as unknown as Record<string, unknown>);
+    if (!buyerValidation.ok) {
+      if (actor) await writeAuditLog({
+        actor, request, action: "MYINVOIS_BUYER_VALIDATION_FAILED",
+        entityType: "WorkOrder", entityId: order.id,
+        summary: "Individual e-Invoice blocked by buyer validation",
+        details: { errorFields: Object.keys(buyerValidation.errors) },
+      });
+      return NextResponse.json(
+        {
+          error: "Buyer details are incomplete or invalid for an individual e-Invoice. Do not submit a walk-in / General Public invoice individually.",
+          messageZh: "普通个人电子发票必须有完整且有效的顾客资料。没有要求个人电子发票的普通散客，请通过 Monthly Consolidated e-Invoice 合并申报。",
+          code: "BUYER_DETAILS_INVALID",
+          fields: buyerValidation.errors,
+        },
+        { status: 400 }
+      );
+    }
+
     const doc = buildInvoiceJson({
       invoiceNumber: order.invoiceNumber,
       ...issueStamp(),
       supplier,
-      customer: buyerForOrder(order), // the customer's own details if they sent them by QR
+      customer: buyer, // validated customer details from the QR request
       lines: order.items.map((i) => ({
         description: i.description,
         quantity: i.quantity,
@@ -91,6 +114,7 @@ export async function POST(request: Request) {
 
     const r = await submitDocument(doc, order.invoiceNumber);
     if (!r.ok) {
+      await writeEInvoiceSubmissionLog({ documentType: "INVOICE", documentNumber: order.invoiceNumber, entityId: order.id, status: "rejected", environment: shop.myInvoisSandbox ? "SANDBOX" : "PRODUCTION", detail: r.detail });
       const fe = friendlyMyInvoisError(r.detail, { httpStatus: r.status, kind: "submit", fallback: "Submission failed" });
       return NextResponse.json(
         {
@@ -102,6 +126,7 @@ export async function POST(request: Request) {
         { status: r.status }
       );
     }
+    await writeEInvoiceSubmissionLog({ documentType: "INVOICE", documentNumber: order.invoiceNumber, entityId: order.id, submissionUid: r.submissionUID, uuid: r.uuid, status: "pending", environment: shop.myInvoisSandbox ? "SANDBOX" : "PRODUCTION" });
     await prisma.workOrder.update({
       where: { id: orderId },
       data: {

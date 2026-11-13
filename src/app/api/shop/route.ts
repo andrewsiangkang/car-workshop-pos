@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { ShopProfile } from "@prisma/client";
 import { MY_STATES } from "@/lib/my-states";
 import { writeAuditLog } from "@/lib/audit";
+import { encryptSecret } from "@/lib/secret-crypto.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,9 @@ export async function PUT(request: Request) {
       msicDesc: str(body.msicDesc, 300),
       myInvoisClientId: str(body.myInvoisClientId, 200),
       // Blank = keep the saved secret (the browser never receives it).
-      myInvoisClientSecret: str(body.myInvoisClientSecret, 200) ?? existing?.myInvoisClientSecret ?? null,
+      myInvoisClientSecret: str(body.myInvoisClientSecret, 200)
+        ? encryptSecret(str(body.myInvoisClientSecret, 200))
+        : existing?.myInvoisClientSecret ?? null,
       myInvoisSandbox: body.myInvoisSandbox !== false,
       bankName: str(body.bankName, 100),
       bankAccount: str(body.bankAccount, 50),

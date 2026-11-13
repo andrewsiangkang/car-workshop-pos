@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOwner, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
+import { writeEInvoiceSubmissionLog } from "@/lib/myinvois-log";
 import {
   getMyInvoisConfig,
   buildCreditNoteJson,
@@ -45,6 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const o = cn.workOrder;
     let reference: { number: string; uuid: string } | null = null;
+    let allowGeneralPublic = false;
     let customer: Buyer = {
       name: o.customer?.name || "General Public",
       tin: o.customer?.tin ?? null,
@@ -58,6 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (con?.eInvoiceUuid && isLive(con.eInvoiceStatus)) {
         reference = { number: con.number, uuid: con.eInvoiceUuid };
         customer = { name: "General Public", tin: null, phone: null };
+        allowGeneralPublic = true;
       }
     }
     if (!reference) {
@@ -91,13 +94,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       amount: cn.amount,
       taxAmount: cn.taxAmount,
       taxRate: o.taxRate,
+      allowGeneralPublic,
     });
     if (Math.abs(payableOf(doc) - cn.amount) > 0.005) {
       return NextResponse.json({ error: "Credit note total mismatch - not submitted" }, { status: 400 });
     }
 
     const r = await submitDocument(doc, cn.number);
-    if (!r.ok) return NextResponse.json({ error: "Submission failed", detail: r.detail }, { status: r.status });
+    if (!r.ok) {
+      await writeEInvoiceSubmissionLog({ documentType: "CREDIT_NOTE", documentNumber: cn.number, entityId: cn.id, status: "rejected", environment: shop.myInvoisSandbox ? "SANDBOX" : "PRODUCTION", detail: r.detail });
+      return NextResponse.json({ error: "Submission failed", detail: r.detail }, { status: r.status });
+    }
+    await writeEInvoiceSubmissionLog({ documentType: "CREDIT_NOTE", documentNumber: cn.number, entityId: cn.id, submissionUid: r.submissionUID, uuid: r.uuid, status: "pending", environment: shop.myInvoisSandbox ? "SANDBOX" : "PRODUCTION" });
     await prisma.creditNote.update({
       where: { id },
       data: { eInvoiceUuid: r.uuid, eInvoiceStatus: "pending", submissionUid: r.submissionUID },

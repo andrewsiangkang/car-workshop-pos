@@ -2,6 +2,8 @@ import { prisma } from "./prisma";
 import crypto from "crypto";
 import { computeTotals, money } from "./tax";
 import { isValidMyInvoisPhone, normalizeMyInvoisPhone } from "./myinvois-phone.mjs";
+import { validateMyInvoisBuyer } from "./myinvois-buyer-core.mjs";
+import { decryptSecret, encryptSecret, isEncryptedSecret } from "./secret-crypto.mjs";
 
 const PROD_API = "https://api.myinvois.hasil.gov.my";
 const SANDBOX_API = "https://preprod-api.myinvois.hasil.gov.my";
@@ -9,9 +11,20 @@ const PROD_PORTAL = "https://myinvois.hasil.gov.my";
 const SANDBOX_PORTAL = "https://preprod.myinvois.hasil.gov.my";
 
 export async function getMyInvoisConfig() {
-  const shop = await prisma.shopProfile.findFirst();
+  let shop = await prisma.shopProfile.findFirst();
   if (!shop?.myInvoisClientId || !shop.myInvoisClientSecret) {
     throw new Error("MyInvois Client ID / Secret not configured in Settings");
+  }
+  const storedSecret = shop.myInvoisClientSecret;
+  const plainSecret = decryptSecret(storedSecret);
+  if (!plainSecret) throw new Error("MyInvois Client Secret is empty");
+  // Transparently migrate legacy plaintext secrets to authenticated AES-256-GCM storage.
+  if (!isEncryptedSecret(storedSecret)) {
+    const encrypted = encryptSecret(plainSecret);
+    shop = await prisma.shopProfile.update({ where: { id: shop.id }, data: { myInvoisClientSecret: encrypted } });
+    shop = { ...shop, myInvoisClientSecret: plainSecret };
+  } else {
+    shop = { ...shop, myInvoisClientSecret: plainSecret };
   }
   // MYINVOIS_API_BASE is for automated testing against a local mock only.
   const base = process.env.MYINVOIS_API_BASE || (shop.myInvoisSandbox ? SANDBOX_API : PROD_API);
@@ -147,8 +160,9 @@ const subtotal = (p: TaxPart) => ({
 const GENERAL_PUBLIC = { name: "General Public", tin: null as string | null, phone: null as string | null };
 
 /**
- * The buyer on an e-Invoice. Only name / TIN / phone are needed for a normal walk-in; the rest
- * is filled when the customer sent their own details through the QR code (v0.2.9).
+ * The buyer on an individual e-Invoice. Individual submissions must use the buyer's
+ * complete details collected through the QR form. General Public fallback is reserved
+ * for monthly consolidated e-Invoices only.
  */
 export type Buyer = {
   name: string;
@@ -163,7 +177,8 @@ export type Buyer = {
   stateCode?: string | null;
 };
 
-/** Buyer for a work order: the details the customer sent by QR if any, otherwise the customer record. */
+/** Buyer for a work order: QR details when provided; fallback is used for display only.
+ * The individual submission API separately blocks incomplete / General Public buyer data. */
 export function buyerForOrder(o: {
   customer?: { name: string; tin: string | null; phone: string | null } | null;
   buyerRequestedAt?: Date | null;
@@ -197,7 +212,14 @@ export function buildUblDocument(p: {
   customer: Buyer;
   lines: UblLine[];
   billingReference?: { number: string; uuid: string };
+  allowGeneralPublic?: boolean;
 }) {
+  const buyerCheck = validateMyInvoisBuyer(p.customer as unknown as Record<string, unknown>, {
+    allowGeneralPublic: p.allowGeneralPublic === true,
+  });
+  if (!buyerCheck.ok) {
+    throw new Error(`Invalid MyInvois buyer profile: ${Object.values(buyerCheck.errors).join("; ")}`);
+  }
   const lines = p.lines.map((l, i) => {
     const net = money(l.gross - l.discount);
     const lineTax = money(l.parts.reduce((s, x) => s + x.tax, 0));
@@ -271,7 +293,7 @@ export function buildUblDocument(p: {
           PartyIdentification: [
             // EI00000000010 = LHDN general-public TIN (only valid when buyer has no TIN).
             { ID: [{ _: cus.tin || "EI00000000010", schemeID: "TIN" }] },
-            // A second ID (BRN/NRIC/passport/army) is mandatory; "NA" is accepted for general public.
+            // General Public "NA" identity is emitted only by buildConsolidatedJson (CLASS 004).
             { ID: [{ _: cus.idNo || "NA", schemeID: cus.idNo ? cus.idType || "BRN" : "BRN" }] },
           ],
           PartyName: [{ Name: [{ _: cus.name || "General Public" }] }],
@@ -360,6 +382,7 @@ export function buildCreditNoteJson(p: {
   amount: number;    // incl. SST
   taxAmount: number;
   taxRate: number;
+  allowGeneralPublic?: boolean;
 }) {
   const net = money(p.amount - p.taxAmount);
   return buildUblDocument({
@@ -370,6 +393,7 @@ export function buildCreditNoteJson(p: {
     supplier: p.supplier,
     customer: p.customer,
     billingReference: p.reference,
+    allowGeneralPublic: p.allowGeneralPublic === true,
     lines: [{
       description: `Credit for invoice ${p.originalInvoiceNumber}: ${p.reason}`,
       quantity: 1,
@@ -400,6 +424,7 @@ export function buildConsolidatedJson(p: {
     issueTime: p.issueTime,
     supplier: p.supplier,
     customer: GENERAL_PUBLIC,
+    allowGeneralPublic: true,
     lines: p.lines.map((l) => ({
       description: `Invoice ${l.invoiceNumber}`,
       quantity: 1,

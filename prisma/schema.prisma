@@ -427,3 +427,32 @@ model LoginThrottle {
 
   @@index([lockedUntil])
 }
+
+
+/// v0.3.29 — immutable operational history for MyInvois submission attempts.
+model EInvoiceSubmissionLog {
+  id             String   @id @default(cuid())
+  documentType   String
+  documentNumber String
+  entityId       String?
+  submissionUid  String?
+  uuid           String?
+  status         String
+  environment    String
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([documentNumber])
+  @@index([submissionUid])
+  @@index([createdAt])
+}
+
+/// v0.3.29 — record additive database upgrade milestones.
+model SystemMigration {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  checksum  String?
+  appliedAt DateTime @default(now())
+}

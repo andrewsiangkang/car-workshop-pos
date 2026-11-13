@@ -1,3 +1,5 @@
+> Current source version: **v0.3.29**. See `docs/CHANGELOG-v0.3.29-ZH.md`, `docs/AUDIT-v0.3.29-ZH.md`, and `docs/UPGRADE-PLAN-v0.3.29-to-v0.4.0-ZH.md` for upgrade notes.
+
 # Workshop POS System
 
 Local web-based POS and management system for a single-person car workshop.  
