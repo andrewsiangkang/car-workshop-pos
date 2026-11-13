@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import crypto from "crypto";
 import { computeTotals, money } from "./tax";
+import { isValidMyInvoisPhone, normalizeMyInvoisPhone } from "./myinvois-phone.mjs";
 
 const PROD_API = "https://api.myinvois.hasil.gov.my";
 const SANDBOX_API = "https://preprod-api.myinvois.hasil.gov.my";
@@ -57,6 +58,7 @@ async function fetchAccessToken(
   return data as { access_token: string; expires_in?: number };
 }
 
+
 // ---------------------------------------------------------------------------
 // Supplier (the shop)
 // ---------------------------------------------------------------------------
@@ -78,7 +80,9 @@ export function supplierFromShop(shop: {
   if (!shop.city) missing.push("city");
   if (!/^\d{5}$/.test(shop.postcode || "")) missing.push("5-digit postcode");
   if (!shop.stateCode) missing.push("state");
-  if (!shop.phone) missing.push("phone");
+  const normalizedPhone = normalizeMyInvoisPhone(shop.phone);
+  if (!String(shop.phone || "").trim()) missing.push("phone");
+  else if (!isValidMyInvoisPhone(normalizedPhone)) missing.push("valid phone number (8-20 digits; no spaces or symbols)");
   const sst = (shop.sstNumber || "").trim();
   return {
     missing,
@@ -89,7 +93,7 @@ export function supplierFromShop(shop: {
       sst: sst && sst.toUpperCase() !== "NA" ? sst : "NA",
       msic: shop.msicCode || "45201",
       msicDesc: shop.msicDesc || "Maintenance and repair of motor vehicles",
-      phone: shop.phone || "NA",
+      phone: normalizedPhone,
       address: shop.address || "NA",
       city: shop.city || "NA",
       postcode: shop.postcode || "",
@@ -258,7 +262,8 @@ export function buildUblDocument(p: {
             Country: [{ IdentificationCode: [{ _: "MYS", listID: "ISO3166-1", listAgencyID: "6" }] }],
           }],
           PartyLegalEntity: [{ RegistrationName: [{ _: sup.name }] }],
-          Contact: [{ Telephone: [{ _: sup.phone }] }],
+          // CF410: send a normalized international phone, never the raw Settings value.
+          Contact: [{ Telephone: [{ _: normalizeMyInvoisPhone(sup.phone) }] }],
         }],
       }],
       AccountingCustomerParty: [{
@@ -279,7 +284,7 @@ export function buildUblDocument(p: {
           }],
           PartyLegalEntity: [{ RegistrationName: [{ _: cus.name || "General Public" }] }],
           Contact: [{
-            Telephone: [{ _: cus.phone && cus.phone !== "N/A" ? cus.phone : "NA" }],
+            Telephone: [{ _: normalizeMyInvoisPhone(cus.phone) }],
             ...(cus.email ? { ElectronicMail: [{ _: cus.email }] } : {}),
           }],
         }],
