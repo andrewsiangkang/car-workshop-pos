@@ -129,7 +129,7 @@ export function SubmitButtons({
       });
       const d = await res.json();
       if (!res.ok) {
-        setMsg(d.error || "Failed");
+        setMsg((d.error || "Failed") + (d.detail ? "\n[LHDN] " + (typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail)) : ""));
       } else {
         const newUid = d.submissionUID || "";
         const newId = d.id || recId;
@@ -177,7 +177,7 @@ export function SubmitButtons({
           {polling ? "Checking…" : "Check Status"}
         </button>
       )}
-      {msg && <span className="text-xs text-slate-600">{msg}</span>}
+      {msg && <span className="whitespace-pre-wrap break-all text-xs text-slate-600">{msg}</span>}
     </div>
   );
 }

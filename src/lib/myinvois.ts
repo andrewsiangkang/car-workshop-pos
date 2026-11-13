@@ -245,7 +245,8 @@ export function buildUblDocument(p: {
           IndustryClassificationCode: [{ _: sup.msic, name: sup.msicDesc }],
           PartyIdentification: [
             { ID: [{ _: sup.tin, schemeID: "TIN" }] },
-            { ID: [{ _: sup.brn, schemeID: "BRN" }] },
+            // Individual taxpayer (TIN starts with "IG") must identify with NRIC, not BRN.
+            { ID: [{ _: sup.brn, schemeID: /^IG/i.test(sup.tin) && /^\d{12}$/.test(sup.brn) ? "NRIC" : "BRN" }] },
             { ID: [{ _: sup.sst, schemeID: "SST" }] },
           ],
           PartyName: [{ Name: [{ _: sup.name }] }],
