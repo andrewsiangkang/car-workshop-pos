@@ -228,7 +228,7 @@ export function EInvoiceForm({
       });
       const data = await res.json();
       if (!res.ok) {
-        setMsg(data.error || "Submit failed");
+        setMsg((data.error || "Submit failed") + (data.detail ? "\n[LHDN] " + (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : ""));
       } else {
         const uid = data.submissionUID || "";
         setSubmissionUID(uid);
@@ -370,7 +370,7 @@ export function EInvoiceForm({
             {polling ? "Checking…" : "Check Status"}
           </button>
         )}
-        {msg && <span className="text-sm text-slate-600">{msg}</span>}
+        {msg && <span className="whitespace-pre-wrap break-all text-sm text-slate-600">{msg}</span>}
       </div>
     </div>
   );
