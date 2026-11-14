@@ -77,7 +77,7 @@ type ConsolidatedParams = {
 
 export function splitByTax(net: number, tax: number, rate: number): TaxPart[];
 export function buyerPhoneProblem(b: Buyer): string | null;
-export function buyerProblem(b: Buyer): string | null;
+export function buyerProblem(b: Buyer, options?: { allowGeneralPublic?: boolean }): string | null;
 export function buildUblDocument(p: {
   typeCode: DocTypeCode;
   number: string;
@@ -111,7 +111,7 @@ export function buildInvoiceJson(params: {
   /** SST stored on the invoice when it was issued (invoices from v0.3.29 or earlier may use the older rounding). */
   issuedTax?: number | null;
 }): UblDocument;
-export function creditNoteItemLines(p: { amount: number; taxAmount: number; taxRate: number; lines?: CreditedLine[] }): UblLine[] | null;
+export function creditNoteItemLines(p: { amount: number; taxAmount: number; taxRate: number; lines?: CreditedLine[]; classification?: string }): UblLine[] | null;
 export function buildCreditNoteJson(p: {
   typeCode?: "02" | "04";
   number: string;
@@ -126,6 +126,8 @@ export function buildCreditNoteJson(p: {
   taxAmount: number;
   taxRate: number;
   lines?: CreditedLine[];
+  /** True only when this credit note refers to a reported consolidated e-Invoice. */
+  consolidated?: boolean;
 }): UblDocument;
 export function consolidatedRanges(
   lines: ConsolidatedEntry[],

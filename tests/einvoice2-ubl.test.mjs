@@ -101,8 +101,24 @@ test("refund note (04): same structure and totals, refers to the original e-Invo
   assert.equal(inv(buildCreditNoteJson({ ...cnBase, typeCode: "99", amount: 50, taxAmount: 0 })).InvoiceTypeCode[0]._, "02");
 });
 
+test("credit note adjusting a consolidated e-Invoice uses classification 004 for General Public", () => {
+  const doc = buildCreditNoteJson({
+    ...cnBase,
+    customer: { name: "General Public", tin: "EI00000000010" },
+    consolidated: true,
+    amount: 50,
+    taxAmount: 0,
+    lines: [],
+  });
+  assert.equal(inv(doc).InvoiceLine[0].Item[0].CommodityClassification[0].ItemClassificationCode[0]._, "004");
+  assert.equal(inv(doc).AccountingCustomerParty[0].Party[0].PostalAddress[0].CountrySubentityCode[0]._, "17");
+});
+
 test("buyer on the document: IC-only individual gets the general TIN with the MyKad; SSM seller is a BRN", () => {
-  const buyer = { name: "Tan Ah Kow", tin: "EI00000000010", idType: "NRIC", idNo: "900101145678", phone: "+60123456789" };
+  const buyer = {
+    name: "Tan Ah Kow", tin: "EI00000000010", idType: "NRIC", idNo: "900101145678", phone: "+60123456789",
+    address: "12 Jalan Example", postcode: "50450", city: "Kuala Lumpur", stateCode: "14",
+  };
   assert.equal(buyerProblem(buyer), null);
   const doc = buildInvoiceJson({ invoiceNumber: "INV1", ...stamp, supplier: { ...supplier, tin: "IG12345678901" }, customer: buyer, lines: items, discount: 0, taxRate: 8, taxScope: "ALL" });
   const cus = inv(doc).AccountingCustomerParty[0].Party[0].PartyIdentification;
@@ -112,6 +128,12 @@ test("buyer on the document: IC-only individual gets the general TIN with the My
   // A named individual needs a phone; the ID problems are reported before the phone.
   assert.match(buyerProblem({ ...buyer, phone: "-" }), /phone/);
   assert.match(buyerProblem({ name: "X", tin: "C12345678901", phone: "+60123456789" }), /no ID number/);
+  assert.match(buyerProblem({ name: "SANDBOX TEST CUSTOMER", phone: "N/A" }), /consolidated e-Invoice/);
+  assert.equal(buyerProblem({ name: "General Public", tin: "EI00000000010" }, { allowGeneralPublic: true }), null);
+  assert.match(buyerProblem({ ...buyer, city: "" }), /city is required/);
+  assert.match(buyerProblem({ ...buyer, stateCode: "17" }), /codes 01–16/);
+  assert.match(buyerProblem({ ...buyer, address: "A".repeat(151) }), /150 characters/);
+  assert.match(buyerProblem({ ...buyer, postcode: "5045" }), /postcode must be 5 digits/);
   // The builder itself refuses a buyer that would be rejected (never sends an unchecked ID).
   assert.throws(() => buildInvoiceJson({ invoiceNumber: "INV1", ...stamp, supplier, customer: { name: "X", tin: "C1", idType: "NRIC", idNo: "123" }, lines: items, discount: 0, taxRate: 0, taxScope: "ALL" }));
 });

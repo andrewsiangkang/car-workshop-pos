@@ -114,7 +114,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     // Same buyer as the e-Invoice referred to AND as the printed credit note (one shared rule).
     const customer = buyerForCreditNote(cn, o, reference.via);
-    const problem = buyerProblem(customer);
+    const problem = buyerProblem(customer, { allowGeneralPublic: reference.via === "consolidated" });
     if (problem) {
       const party = buyerParty(customer);
       if (!party.ok && party.field === "idNo" && reference.via === "invoice" && buyerEditLock(o, con)) {
@@ -136,6 +136,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       taxAmount: cn.taxAmount,
       taxRate: o.taxRate,
       lines: cn.lines,
+      consolidated: reference.via === "consolidated",
     });
     if (Math.abs(payableOf(doc) - cn.amount) > 0.005) {
       return NextResponse.json({ error: "Credit note total mismatch - not submitted" }, { status: 400 });

@@ -1,6 +1,6 @@
 {
   "name": "car-workshop-pos",
-  "version": "0.3.31",
+  "version": "0.3.32",
   "private": true,
   "scripts": {
     "dev": "next dev",

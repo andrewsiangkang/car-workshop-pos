@@ -462,7 +462,8 @@ export function EInvoiceForm({
               : "A company (BRN), passport or army ID needs its TIN. Use Find TIN if the customer does not know it."}
           </div>
           <div className="mt-2 text-xs text-slate-500">
-            Buyer address and email (optional; printed on the invoice and sent to LHDN). Clear them if they belong to someone else.
+            For an individual e-Invoice, buyer city and Malaysian state are required. Street, postcode and email are optional.
+            Walk-in buyers without an ID must be included in a monthly consolidated e-Invoice.
           </div>
           <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <input

@@ -68,14 +68,41 @@ export function buyerPhoneProblem(b) {
 }
 
 /**
- * Everything about the buyer LHDN would refuse, checked before submitting: the TIN / ID pair
- * (each ID number valid for its type), then the phone. null when fine.
- * @param {{ phone?: string | null, tin?: string | null, idType?: string | null, idNo?: string | null }} b
+ * Everything about the buyer LHDN would refuse, checked before submitting: identity, name,
+ * Malaysian address fields and phone. General Public is allowed only for a document that
+ * explicitly adjusts a consolidated e-Invoice (and uses classification 004).
+ * @param {{ name?: string | null, phone?: string | null, tin?: string | null, idType?: string | null, idNo?: string | null, address?: string | null, postcode?: string | null, city?: string | null, stateCode?: string | null }} b
+ * @param {{ allowGeneralPublic?: boolean }} [options]
  */
-// 【中文】提交前检查买方：TIN 和证件号码（按证件类型检查格式），再检查电话。没问题返回 null。
-export function buyerProblem(b) {
+// 【中文】提交前检查买方身份、姓名、马来西亚城市/州属和电话；散客只能用于合并电子发票。
+export function buyerProblem(b, options = {}) {
   const party = buyerParty(b);
   if (!party.ok) return party.message;
+
+  if (party.kind === "general_public") {
+    return options.allowGeneralPublic
+      ? null
+      : "LHDN only accepts General Public (TIN EI00000000010 and ID “NA”) on a consolidated e-Invoice (classification 004). Add the buyer's actual ID details for this individual invoice, or leave the transaction for monthly consolidation.";
+  }
+
+  const name = String(b?.name ?? "").trim();
+  if (!name || name.toLowerCase() === "general public") return "The buyer's actual name is required for an individual e-Invoice.";
+  if (name.length > 300) return "The buyer's name is too long (maximum 300 characters).";
+
+  const address = String(b?.address ?? "").trim();
+  const postcode = String(b?.postcode ?? "").replace(/\s+/g, "");
+  const city = String(b?.city ?? "").trim();
+  const stateCode = String(b?.stateCode ?? "").trim();
+  const addressProblems = [];
+  if (address.length > 150) addressProblems.push("street address must be at most 150 characters");
+  if (postcode && !/^\d{5}$/.test(postcode)) addressProblems.push("postcode must be 5 digits");
+  if (!city) addressProblems.push("city is required");
+  else if (city.length > 50) addressProblems.push("city must be at most 50 characters");
+  if (!/^(0[1-9]|1[0-6])$/.test(stateCode)) addressProblems.push("select a Malaysian state (codes 01–16; 17 is for consolidated or foreign addresses)");
+  if (addressProblems.length) {
+    return "The buyer's Malaysian address is incomplete or invalid: " + addressProblems.join("; ") + ".";
+  }
+
   return buyerPhoneProblem(b);
 }
 
@@ -266,11 +293,12 @@ export function buildInvoiceJson(params) {
  * One UBL line per credited invoice line (same item, quantity, discount share and SST as on the
  * printed credit note), or null to fall back to one summary line: amount-only credits, and any
  * rows that do not add up to the credit note's own net / SST to the sen.
- * @param {{ amount: number, taxAmount: number, taxRate: number, lines?: Array<{ description: string, quantity: number, unitPrice: number, total: number, net: number, taxAmount: number }> }} p
+ * @param {{ amount: number, taxAmount: number, taxRate: number, lines?: Array<{ description: string, quantity: number, unitPrice: number, total: number, net: number, taxAmount: number }>, classification?: string }} p
  */
 export function creditNoteItemLines(p) {
   const rows = (p.lines || []).filter((l) => l.quantity > 0);
   if (!rows.length) return null;
+  const classification = p.classification || CLASS_OTHERS;
   const netC = rows.reduce((s, l) => s + toCents(l.net), 0);
   const taxC = rows.reduce((s, l) => s + toCents(l.taxAmount), 0);
   if (netC !== toCents(p.amount) - toCents(p.taxAmount) || taxC !== toCents(p.taxAmount)) return null;
@@ -281,20 +309,21 @@ export function creditNoteItemLines(p) {
     gross: money(l.total),
     discount: money(Math.max(0, l.total - l.net)),
     parts: [{ base: money(l.net), tax: money(l.taxAmount), rate: l.taxAmount > 0 ? p.taxRate : 0 }],
-    classification: CLASS_OTHERS,
+    classification,
   }));
 }
 
 /**
  * Credit note (02) or refund note (04, money returned to the buyer) referring to the original
  * invoice's e-Invoice or the consolidated e-Invoice that reported it. Same structure for both.
- * @param {{ typeCode?: "02" | "04", number: string, issueDate: string, issueTime: string, supplier: Record<string, any>, customer: Record<string, any>, originalInvoiceNumber: string, reference: { number: string, uuid: string }, reason: string, amount: number, taxAmount: number, taxRate: number, lines?: Array<{ description: string, quantity: number, unitPrice: number, total: number, net: number, taxAmount: number }> }} p
+ * @param {{ typeCode?: "02" | "04", number: string, issueDate: string, issueTime: string, supplier: Record<string, any>, customer: Record<string, any>, originalInvoiceNumber: string, reference: { number: string, uuid: string }, reason: string, amount: number, taxAmount: number, taxRate: number, lines?: Array<{ description: string, quantity: number, unitPrice: number, total: number, net: number, taxAmount: number }>, consolidated?: boolean }} p
  */
 // 【中文】贷项通知（02）或退款单（04，钱已退回买方），都引用原发票或合并发票的电子发票，结构相同。
 export function buildCreditNoteJson(p) {
   const typeCode = p.typeCode === DOC_TYPE.REFUND_NOTE ? DOC_TYPE.REFUND_NOTE : DOC_TYPE.CREDIT_NOTE;
   const net = money(p.amount - p.taxAmount);
-  const itemised = creditNoteItemLines(p);
+  const classification = p.consolidated ? CLASS_CONSOLIDATED : CLASS_OTHERS;
+  const itemised = creditNoteItemLines({ ...p, classification });
   const what = typeCode === DOC_TYPE.REFUND_NOTE ? "Refund" : "Credit";
   return buildUblDocument({
     typeCode,
@@ -311,7 +340,7 @@ export function buildCreditNoteJson(p) {
       gross: net,
       discount: 0,
       parts: splitByTax(net, p.taxAmount, p.taxRate),
-      classification: CLASS_OTHERS,
+      classification,
     }],
   });
 }
