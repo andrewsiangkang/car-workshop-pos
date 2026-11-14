@@ -75,6 +75,8 @@ jobs:
         run: npx electron-builder --win --config electron-builder.yml --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Verify packaged server runtime
+        run: node scripts/verify-packaged-server.mjs dist/win-unpacked/resources/app-server
       - name: Checksums for the in-app updater
         run: node scripts/release-checksums.mjs dist
 

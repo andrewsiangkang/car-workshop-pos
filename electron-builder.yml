@@ -2,6 +2,7 @@ appId: com.workshop.pos
 productName: 修车店POS
 directories:
   output: dist
+afterPack: scripts/ensure-server-runtime.cjs
 # electron/**/* ships every desktop-app file: main.js and the modules it loads (backup, updater,
 # emergency restore and its db-check helper, password window, upgrade notice, ...).
 files:
