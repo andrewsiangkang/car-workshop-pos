@@ -1,0 +1,47 @@
+# 【中文】演示版打包配置（完整副本）：appId / 名称 / 数据文件夹都与正式版不同，可同机安装、互不影响。
+appId: com.workshop.pos.demo
+productName: 修车店POS演示版
+extraMetadata:
+  workshopDemo: true
+directories:
+  output: dist
+# electron/**/* ships every desktop-app file: main.js and the modules it loads (backup, updater,
+# emergency restore and its db-check helper, password window, upgrade notice, ...).
+files:
+  - electron/**/*
+  - package.json
+# The emergency-restore check (db-check.js) runs as its own Node process: keep a plain copy
+# outside app.asar so it never depends on asar support in that process.
+asarUnpack:
+  - electron/db-check.js
+extraResources:
+  - from: .next/standalone
+    to: app-server
+    # Never ship a local .env: Next.js copies .env / .env.production into the standalone folder.
+    filter:
+      - "**/*"
+      - "!**/.env"
+      - "!**/.env.*"
+  - from: .next/static
+    to: app-server/.next/static
+  - from: public
+    to: app-server/public
+  - from: prisma/template.db
+    to: template.db
+  # Licences of the bundled open-source components (LGPL notice for libvips, etc.) and their full
+  # licence texts with copyright lines (made by scripts/collect-licenses.mjs; GPL / LGPL v3 texts)
+  - from: THIRD-PARTY-NOTICES.md
+    to: THIRD-PARTY-NOTICES.md
+  - from: licenses
+    to: licenses
+win:
+  target:
+    - target: nsis
+      arch: x64
+  artifactName: "WorkshopPOS-DEMO-Setup-${version}.${ext}"
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
