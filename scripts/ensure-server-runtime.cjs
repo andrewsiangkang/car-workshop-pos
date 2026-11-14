@@ -1,7 +1,7 @@
 "use strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require("node:fs"); // eslint-disable-line @typescript-eslint/no-require-imports
+const path = require("node:path"); // eslint-disable-line @typescript-eslint/no-require-imports
 
 const REQUIRED_RUNTIME_FILES = [
   ["Next.js", path.join("node_modules", "next", "package.json")],
