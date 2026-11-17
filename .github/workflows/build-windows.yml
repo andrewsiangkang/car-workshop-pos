@@ -1,0 +1,114 @@
+# Builds the Windows installer.
+# 1. check:   exact locked dependencies (npm ci), type check, lint and tests. Pull requests stop here.
+# 2. build:   template database, production build (fails without the offline OCR files),
+#             installer, and the SHA-256 checksums the in-app updater checks before installing.
+# 3. release: only for a v* tag, and the only job with write access: publishes the installer,
+#             its .sha256 and latest.json. The installer is not code-signed yet (see README).
+# Actions are pinned to their major versions; the token is read-only everywhere else.
+# 【中文】打包 Windows 安装程序：先跑类型检查、代码检查和测试；再打包并生成更新用的 SHA-256 校验文件；
+# 只有打 v 标签发布时，最后一步才有写入权限去创建 Release。
+name: Build Windows installer
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Type check, lint and tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+
+  build:
+    name: Build installer
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    env:
+      # scripts/copy-ocr.js: a release without the offline OCR files fails instead of shipping.
+      WORKSHOP_RELEASE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$PKG" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${PKG}"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Create empty template database
+        shell: bash
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: file:./template.db
+      - name: Production build
+        run: npm run build
+        env:
+          DATABASE_URL: file:./template.db
+      - name: Package the installer
+        run: npx electron-builder --win --config electron-builder.yml --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Verify packaged server runtime
+        run: node scripts/verify-packaged-server.mjs dist/win-unpacked/resources/app-server
+      - name: Checksums for the in-app updater
+        run: node scripts/release-checksums.mjs dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: WorkshopPOS-Setup
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.exe.sha256
+            dist/latest.json
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: WorkshopPOS-Setup
+          path: dist
+      - name: Check the checksums again before publishing
+        working-directory: dist
+        run: sha256sum -c ./*.exe.sha256
+      - uses: softprops/action-gh-release@v3
+        with:
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            dist/*.exe
+            dist/*.exe.sha256
+            dist/latest.json
