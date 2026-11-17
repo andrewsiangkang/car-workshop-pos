@@ -1,0 +1,4 @@
+# Keep LF line endings on every checkout (Windows CI included), so licenses/ and the tests
+# see the same bytes everywhere. Batch files need CRLF for cmd.exe.
+* text=auto eol=lf
+*.bat text eol=crlf

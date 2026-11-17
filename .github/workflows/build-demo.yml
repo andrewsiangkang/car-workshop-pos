@@ -1,0 +1,78 @@
+# 【中文】手动运行：打包「演示版」安装包（带示范资料）。不会发布到 Releases，只在 Actions 页面下载。
+# 演示账号密码：没设置 Secrets 就每次随机生成，写在同一个 Artifact 里的 demo-login.txt。
+# 注意：公开仓库的 Artifact 任何登录 GitHub 的人都能下载，所以这只是演示密码。
+# 如果在仓库 Secrets 里设置 DEMO_OWNER_PASSWORD / DEMO_STAFF_PASSWORD，密码不会写进 demo-login.txt（只写“用 Secret 设置的密码”）。
+# 演示版只允许本机访问。
+# Manual run: builds the DEMO installer (sample data). Never published as a release.
+# Demo logins: random passwords for this build, in demo-login.txt inside the same artifact. The
+# artifact of a public repository can be downloaded by ANY signed-in GitHub user, so these are
+# throw-away demo passwords only. Passwords set as the repository secrets DEMO_OWNER_PASSWORD /
+# DEMO_STAFF_PASSWORD are never written to demo-login.txt (it only names the secret). The demo
+# only listens on the computer it is installed on. Read-only token; tests run first.
+name: Build DEMO installer
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Type check, lint and tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+
+  build:
+    name: Build DEMO installer
+    needs: check
+    runs-on: windows-latest
+    env:
+      WORKSHOP_RELEASE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Create template database
+        shell: bash
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: file:./template.db
+      - name: Fill with demo data
+        shell: bash
+        run: node scripts/seed-demo.js
+        env:
+          DATABASE_URL: file:./template.db
+          DEMO_OWNER_PASSWORD: ${{ secrets.DEMO_OWNER_PASSWORD }}
+          DEMO_STAFF_PASSWORD: ${{ secrets.DEMO_STAFF_PASSWORD }}
+          DEMO_LOGIN_FILE: demo-login.txt
+      - name: Production build
+        run: npm run build
+        env:
+          DATABASE_URL: file:./template.db
+      - name: Package the demo installer
+        run: npx electron-builder --win --config electron-builder-demo.yml --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: WorkshopPOS-DEMO-Setup
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            demo-login.txt
