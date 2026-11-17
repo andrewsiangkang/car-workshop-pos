@@ -1,0 +1,6 @@
+client-only 0.0.1
+Licence: MIT
+Source: https://reactjs.org/
+==============================================================================
+
+This package does not include a licence file. Its package.json declares the licence above.

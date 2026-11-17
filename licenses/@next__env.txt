@@ -1,0 +1,6 @@
+@next/env 15.5.29
+Licence: MIT
+Source: https://github.com/vercel/next.js
+==============================================================================
+
+This package does not include a licence file. Its package.json declares the licence above (author: Next.js Team <support@vercel.com>).
