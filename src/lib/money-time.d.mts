@@ -1,0 +1,17 @@
+export const MY_TIME_ZONE: string;
+export type MyParts = { year: number; month: number; day: number; hour: number; minute: number };
+type DateIn = Date | string | number | null | undefined;
+export function myParts(value: DateIn): MyParts | null;
+export function myMidnight(year: number, month: number, day?: number): Date;
+export function myDateKey(value: DateIn): string;
+export function myMonthKey(value: DateIn): string;
+export function monthLabel(key: string): string;
+export function myDayStart(now?: Date): Date;
+export function myMonthStart(now?: Date, addMonths?: number): Date;
+export function myRangeStart(range: string, now?: Date): Date | null;
+export function myRangeEnd(range: string, now?: Date): Date | null;
+export function parseMyDate(text: unknown): Date | null;
+export function parseMyMonth(text: unknown): { start: Date; end: Date } | null;
+export function shiftMonthKey(key: string, add: number): string;
+export function formatMyDate(value: DateIn): string;
+export function formatMyDateTime(value: DateIn): string;

@@ -1,0 +1,939 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  STAFF
+  TECHNICIAN
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  QUOTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  TNG
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STAFF)
+  phone        String?
+  disabledAt   DateTime? // v0.3.29: account switched off by the boss (ex-staff); cannot log in
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workOrdersCreated  WorkOrder[] @relation("CreatedBy")
+  workOrdersAssigned WorkOrder[] @relation("AssignedTo")
+  technicianTimeLogs TechnicianTimeLog[]
+  assignedAppointments Appointment[] @relation("AppointmentTechnician")
+  payrollRule PayrollCommissionRule?
+  payrollEntries PayrollEntry[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  tin       String?  // for e-Invoice
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // v0.3.30 — address printed on invoices / sent to LHDN when known
+  address   String?
+  postcode  String?
+  city      String?
+  stateCode String?  // LHDN state code 01-17
+  // v0.3.30 — PDPA: WhatsApp service-reminder consent / opt-out, reminder language, anonymisation
+  reminderConsentAt DateTime?
+  reminderOptOutAt  DateTime?
+  language          String?   // "en" | "zh" | "ms" for reminders
+  anonymisedAt      DateTime? // personal data removed; financial records kept
+
+  vehicles   Vehicle[]
+  workOrders WorkOrder[]
+  appointments Appointment[]
+  vehicleCheckIns VehicleCheckIn[]
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  plateNumber String   @unique
+  make        String
+  model       String
+  year        Int?
+  color       String?
+  vin         String?
+  mileage     Int?
+  notes       String?
+  lastServiceDate      DateTime?
+  lastServiceMileage   Int?
+  nextServiceDate      DateTime?
+  nextServiceMileage   Int?
+  serviceIntervalKm    Int      @default(5000)
+  serviceIntervalMonths Int    @default(6)
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrders WorkOrder[]
+  appointments Appointment[]
+  checkIns VehicleCheckIn[]
+}
+
+model WorkOrder {
+  id            String          @id @default(cuid())
+  orderNumber   String          @unique // internal job number e.g. WO20261110001
+
+  // Document numbers
+  quotationNumber String?       @unique // QT20261110001
+  invoiceNumber   String?       @unique // INV20261110001
+  receiptNumber   String?       @unique // RC20261110001
+
+  status        WorkOrderStatus @default(DRAFT)
+  // v0.4.0 — workshop scheduling metadata; existing jobs receive safe defaults.
+  priority      String          @default("NORMAL") // LOW / NORMAL / HIGH / URGENT
+  workflowStage String          @default("WAITING") // v0.5.0 workshop workflow is separate from financial WorkOrderStatus
+  estimatedCompletionAt DateTime?
+  startedAt     DateTime?
+  description   String?         // customer complaint
+  diagnosis     String?
+  laborNotes    String?
+  mileageIn     Int?
+  mileageOut    Int?
+
+  totalAmount   Float           @default(0)
+  roundingAdjustment Float      @default(0) // cash-only rounding applied at settlement
+  partsAmount   Float           @default(0)
+  laborAmount   Float           @default(0)
+  discount      Float           @default(0)
+  taxRate       Float           @default(0)     // SST % applied (snapshot)
+  taxScope      String          @default("ALL") // "ALL" or "LABOR" (snapshot)
+  taxAmount     Float           @default(0)     // SST charged; totalAmount includes it
+  creditedAmount Float          @default(0)     // total of credit notes issued against this invoice
+  consolidatedId String?                        // ConsolidatedInvoice that reported this invoice to LHDN
+  paidAmount    Float           @default(0)
+
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  quotedAt      DateTime?
+  confirmedAt   DateTime?
+  completedAt   DateTime?
+  invoicedAt    DateTime?
+  paidAt        DateTime?
+
+  // e-Invoice fields (for later)
+  eInvoiceUuid  String?
+  eInvoiceLongId String?
+  eInvoiceStatus String?        // pending / valid / invalid / cancelled
+  submissionUid  String?        // LHDN submission batch id (needed to poll status after refresh)
+  eInvoiceEnv    String?        // v0.3.29: "sandbox" | "production" — sandbox results never count as a real e-Invoice
+  eInvoiceSubmittingAt DateTime? // v0.3.30: set while a submission to LHDN is in flight (stops double submits)
+
+  // v0.2.9 — buyer scans the QR on the invoice / receipt and fills in their own e-Invoice details
+  eInvoiceToken     String?   @unique // random code in the QR link (not guessable)
+  buyerRequestedAt  DateTime?         // when the buyer sent their details
+  buyerName         String?
+  buyerTin          String?
+  buyerIdType       String?           // NRIC / PASSPORT / BRN / ARMY
+  buyerIdNo         String?
+  buyerEmail        String?
+  buyerPhone        String?
+  buyerAddress      String?
+  buyerPostcode     String?
+  buyerCity         String?
+  buyerStateCode    String?           // LHDN state code 01-17
+  // v0.3.29 — PDPA: when the customer ticked consent on the QR form, and which notice they saw
+  buyerConsentAt     DateTime?
+  buyerConsentNotice String?
+
+  // v0.3.29 — seller / buyer / vehicle particulars frozen when the invoice is issued (JSON, see
+  // src/lib/doc-snapshot.mjs). Invoices and receipts print from it, so later edits to Settings,
+  // the customer or the car never change an issued invoice. Null on older invoices (live data).
+  docSnapshot       String?
+
+  customerId    String
+  customer      Customer        @relation(fields: [customerId], references: [id])
+  vehicleId     String
+  vehicle       Vehicle         @relation(fields: [vehicleId], references: [id])
+  createdById   String
+  createdBy     User            @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedToId  String?
+  assignedTo    User?           @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  items         WorkOrderItem[]
+  payments      Payment[]
+  stockMovements StockMovement[]
+  creditNotes    CreditNote[]
+  history        WorkOrderHistory[]
+  stageHistory   WorkOrderStageHistory[]
+  appointments   Appointment[]
+  checkIns       VehicleCheckIn[]
+  inspections    VehicleInspection[]
+  approvals      CustomerApproval[]
+  technicianTimeLogs TechnicianTimeLog[]
+  partReservations PartReservation[]
+  partIssues     PartIssue[]
+  qcInspections  QCInspection[]
+  payrollEntry   PayrollEntry?
+
+  // v0.3.30 — a customer's jobs are looked up by customer (privacy clean-up at start, anonymising)
+  @@index([customerId])
+  @@index([status, estimatedCompletionAt])
+}
+
+// v0.4.0 — append-only workshop timeline; legacy jobs intentionally receive no synthetic history.
+model WorkOrderHistory {
+  id          String   @id @default(cuid())
+  workOrderId String
+  fromStatus  String?
+  toStatus    String
+  note        String?
+  actorUserId String?
+  actorName   String
+  createdAt   DateTime @default(now())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+}
+
+model WorkOrderItem {
+  id              String         @id @default(cuid())
+  type            String         // "PART" or "LABOR"
+  description     String
+  quantity        Float          @default(1)
+  unitPrice       Float
+  costPrice       Float          @default(0)
+  total           Float
+  workOrderId     String
+  workOrder       WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  creditNoteLines CreditNoteLine[]
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  amount      Float         // amount applied to the bill (negative = refund). For cash: handed over minus change.
+  method      PaymentMethod @default(CASH)
+  reference   String?       // TNG / Transfer reference number
+  notes       String?
+  paidAt      DateTime      @default(now())
+  tendered    Float?        // CASH only: money the customer handed over
+  changeGiven Float?        // CASH only: change given back (tendered - amount)
+  workOrderId String
+  workOrder   WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  shiftId     String?       // the counter session (CashShift) this money went through
+  shift       CashShift?    @relation(fields: [shiftId], references: [id])
+}
+
+// ===== Cash counter: open with a float, close with a cash count =====
+// Expected cash in the drawer at close = openingFloat + CASH payments (net of change) - CASH refunds.
+model CashShift {
+  id           String    @id @default(cuid())
+  openedAt     DateTime  @default(now())
+  openedByName String
+  openingFloat Float
+  closedAt     DateTime?
+  closedByName String?
+  expectedCash Float?    // snapshot taken at close
+  countedCash  Float?    // what was physically counted
+  variance     Float?    // counted - expected: negative = shortage, positive = overage
+  notes        String?
+
+  // v0.2.4 — denomination counts, float kept for tomorrow, and the bank deposit
+  openingCount    String?   // JSON {"100":2,"50":0,...}: notes / coins counted when opening
+  countedBreakdown String?  // JSON: notes / coins counted when closing
+  floatKept       Float?    // cash left in the drawer as tomorrow's float
+  depositAmount   Float?    // counted cash - floatKept = cash to bank in (before costs are deducted)
+  depositedAt     DateTime? // set when the boss confirms the cash was banked in
+  depositedByName String?
+  depositRef      String?   // bank slip / reference no.
+  reconciled      String?   // JSON {"CARD":{"by":"Ah Boss","at":"2026-11-12T..."}}: non-cash methods the boss has checked
+  closingSnapshot String?   // v0.3.30: JSON totals frozen when the day was closed (the settlement report keeps adding up)
+
+  payments     Payment[]
+  vouchers     PaymentVoucher[] // cash paid out of this drawer
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  amount      Float
+  category    String?
+  notes       String?
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  createdById String?   // v0.3.30
+  voidedAt    DateTime? // v0.3.30: cancelled expenses stay on record but no longer count
+  voidReason  String?
+}
+
+// Shop profile for documents & e-Invoice
+model ShopProfile {
+  id            String   @id @default(cuid())
+  // v0.3.18 — international business profile defaults
+  countryCode   String   @default("MY")
+  currencyCode  String   @default("MYR")
+  locale        String   @default("en-MY")
+  timeZone      String   @default("Asia/Kuala_Lumpur")
+  taxLabel      String   @default("SST")
+  name          String   // shop name
+  nameMs        String?  // Malay name if any
+  address       String?  // street address line
+  city          String?
+  postcode      String?
+  stateCode     String?  // LHDN state code 01-17
+  phone         String?
+  email         String?
+  tin           String?  // Tax Identification Number
+  brn           String?  // Business Registration Number
+  sstNumber     String?  // SST registration, or "NA"
+  sstRate       Float    @default(0)      // service tax %, e.g. 8. Charged only when sstNumber is set
+  sstScope      String   @default("ALL")  // "ALL" = parts + labour taxed, "LABOR" = labour only
+  msicCode      String?  // industry code
+  msicDesc      String?  // business activity description
+  myInvoisClientId     String?
+  myInvoisClientSecret String?
+  myInvoisSandbox      Boolean  @default(true)
+  bankName      String?
+  bankAccount   String?
+  paymentQrUrl  String?  // URL or path for payment QR image
+  logoUrl       String?
+  receiptFooter String?  // thank you message
+  documentSettings String? // owner-editable quotation, invoice and receipt print layout settings (JSON)
+  customerRetentionYears Int? // v0.3.30: PDPA — anonymise customers inactive this many years (null = off; records 7 years minimum)
+  updatedAt     DateTime @updatedAt
+}
+
+// ===== Inventory =====
+model InventoryItem {
+  id             String   @id @default(cuid())
+  name           String
+  sku            String?  @unique
+  category       String?
+  unit           String   @default("pcs")
+  quantityOnHand Float    @default(0)
+  costPrice      Float    @default(0)
+  sellingPrice   Float    @default(0)
+  minStockLevel  Float    @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  archivedAt     DateTime? // v0.3.30: "deleted" items are archived so their stock history is kept
+
+  movements      StockMovement[]
+  workOrderItems WorkOrderItem[]
+  supplierItems  SupplierInvoiceItem[]
+  partReservations PartReservation[]
+  partIssues PartIssue[]
+}
+
+model StockMovement {
+  id              String        @id @default(cuid())
+  type            String        // IN, OUT, ADJUST
+  quantity        Float         // positive for IN, negative for OUT/ADJUST reduction
+  notes           String?
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  workOrderId     String?
+  workOrder       WorkOrder?    @relation(fields: [workOrderId], references: [id])
+  createdAt       DateTime      @default(now())
+}
+
+// ===== Credit notes (refunds / reductions after an invoice is issued) =====
+model CreditNote {
+  id             String    @id @default(cuid())
+  number         String    @unique // CN20261111001
+  amount         Float     // amount credited, incl. SST
+  taxAmount      Float     @default(0) // SST part of amount
+  reason         String
+  refundAmount   Float     @default(0) // money actually paid back to customer
+  refundMethod   String?
+  createdAt      DateTime  @default(now())
+  createdById    String?
+  workOrderId    String
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id])
+  eInvoiceUuid   String?
+  eInvoiceLongId String?
+  eInvoiceStatus String?   // pending / valid / invalid / cancelled / consolidated
+  submissionUid  String?
+  eInvoiceEnv    String?   // v0.3.29: "sandbox" | "production"
+  eInvoiceType   String?   // v0.3.30: LHDN document type sent: "02" credit note, "04" refund note
+  eInvoiceSubmittingAt DateTime? // v0.3.30: set while a submission is in flight
+  docSnapshot    String?   // v0.3.29: seller / buyer / vehicle as on the day it was issued (JSON, see doc-snapshot.mjs)
+
+  lines          CreditNoteLine[] // v0.3.29: invoice lines credited (empty = amount-only credit, e.g. goodwill)
+
+  // v0.3.30 — a job's credit notes are looked up by job
+  @@index([workOrderId])
+}
+
+// v0.3.29 — which invoice lines a credit note credits, so its SST follows the invoice's tax
+// scope and returned parts can go back into stock.
+model CreditNoteLine {
+  id              String         @id @default(cuid())
+  creditNoteId    String
+  creditNote      CreditNote     @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  workOrderItemId String?        // the invoice line credited
+  workOrderItem   WorkOrderItem? @relation(fields: [workOrderItemId], references: [id], onDelete: SetNull)
+  type            String         // "PART" or "LABOR" (copied from the invoice line)
+  description     String
+  quantity        Float          // units credited
+  unitPrice       Float
+  total           Float          // value of the credited units before discount and SST
+  net             Float          // after the invoice's discount share
+  taxAmount       Float          @default(0)
+  inventoryItemId String?        // set when the part was linked to inventory
+  returnedToStock Float          @default(0) // units put back on the shelf with this credit note
+
+  @@index([creditNoteId])
+  @@index([workOrderItemId])
+}
+
+// ===== Monthly consolidated e-Invoice for buyers who did not ask for one =====
+model ConsolidatedInvoice {
+  id             String   @id @default(cuid())
+  number         String   @unique // CON-202610
+  month          String   @unique // "2026-10"
+  orderCount     Int
+  netAmount      Float
+  taxAmount      Float
+  totalAmount    Float
+  createdAt      DateTime @default(now())
+  eInvoiceUuid   String?
+  eInvoiceLongId String?
+  eInvoiceStatus String?
+  submissionUid  String?
+  eInvoiceEnv    String?   // v0.3.29: "sandbox" | "production"
+  eInvoiceSubmittingAt DateTime? // v0.3.30: set while a submission is in flight
+}
+
+// ===== Purchasing: supplier invoices (stock in) and payment vouchers =====
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  phone     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  invoices  SupplierInvoice[]
+}
+
+model SupplierInvoice {
+  id          String   @id @default(cuid())
+  internalNo  String   @unique          // SI20261111001
+  invoiceNo   String                    // number printed on the supplier's invoice
+  invoiceDate DateTime
+  dueDate     DateTime?
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  subtotal    Float
+  taxAmount   Float    @default(0)
+  totalAmount Float
+  paidAmount  Float    @default(0)
+  status      String   @default("UNPAID") // UNPAID / PARTIAL / PAID
+  notes       String?
+  imageUrl    String?                   // scanned copy (optional)
+  voidedAt    DateTime?                 // set when cancelled; stock was reversed
+  voidReason  String?
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  items       SupplierInvoiceItem[]
+  vouchers    PaymentVoucher[]
+
+  @@unique([supplierId, invoiceNo])     // the same invoice cannot be stocked in twice
+}
+
+model SupplierInvoiceItem {
+  id              String         @id @default(cuid())
+  description     String
+  sku             String?
+  category        String?
+  quantity        Float
+  unitCost        Float
+  total           Float
+  invoiceId       String
+  invoice         SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+  // v0.3.30 — the inventory item's prices before this invoice changed them (restored on void)
+  prevCostPrice    Float?
+  prevSellingPrice Float?
+}
+
+model PaymentVoucher {
+  id                String   @id @default(cuid())
+  number            String   @unique    // PV20261111001
+  payee             String
+  purpose           String?
+  amount            Float
+  method            String   @default("CASH")
+  reference         String?
+  notes             String?
+  paidAt            DateTime @default(now())
+  createdAt         DateTime @default(now())
+  createdById       String?
+  supplierInvoiceId String?
+  voidedAt          DateTime?            // set when cancelled; amount no longer counts
+  voidReason        String?
+  shiftId           String?              // set when the cash came out of the counter drawer
+  shift             CashShift?       @relation(fields: [shiftId], references: [id])
+  supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
+}
+
+
+// Immutable operational audit trail. Sensitive credentials and full payment data must never be stored here.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorName   String
+  actorRole   String
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  details     String?  // JSON with non-sensitive before/after values only
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  // v0.3.30 — tamper evidence: each entry carries the hash of the previous one
+  seq         Int?
+  prevHash    String?
+  hash        String?
+
+  @@index([createdAt])
+  @@index([seq])
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}
+
+
+// Persistent per-account login throttling survives app restarts. The key is a SHA-256 digest, not an email.
+model LoginThrottle {
+  key              String   @id
+  failures         Int      @default(0)
+  windowStartedAt  DateTime @default(now())
+  lockedUntil      DateTime?
+  updatedAt        DateTime @updatedAt
+
+  @@index([lockedUntil])
+}
+
+// v0.3.30 — document numbers that were already issued before a backup restore rolled the
+// database back. Numbering skips them, so a printed number is never given to another document.
+model RetiredDocNumber {
+  number    String   @id // e.g. INV20261110005
+  kind      String   // "WO" | "QT" | "INV" | "RC" | "CN" | "SI" | "PV"
+  source    String?  // safety copy it was found in
+  createdAt DateTime @default(now())
+
+  @@index([kind])
+}
+
+
+// v0.5.0 — appointment scheduling. Appointment may exist before a work order is created.
+model Appointment {
+  id             String   @id @default(cuid())
+  appointmentNo  String   @unique
+  customerId     String
+  vehicleId      String
+  startAt        DateTime
+  endAt          DateTime
+  status         String   @default("BOOKED") // BOOKED / CONFIRMED / CHECKED_IN / COMPLETED / CANCELLED / NO_SHOW
+  serviceType    String?
+  notes          String?
+  source         String   @default("WALK_IN") // WALK_IN / PHONE / ONLINE / WHATSAPP
+  assignedTechnicianId String?
+  serviceBayId   String?
+  workOrderId    String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  assignedTechnician User? @relation("AppointmentTechnician", fields: [assignedTechnicianId], references: [id], onDelete: SetNull)
+  serviceBay     ServiceBay? @relation(fields: [serviceBayId], references: [id], onDelete: SetNull)
+  workOrder      WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  @@index([startAt, endAt])
+  @@index([status, startAt])
+  @@index([customerId, startAt])
+  @@index([assignedTechnicianId, startAt])
+  @@index([serviceBayId, startAt])
+}
+
+model ServiceBay {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  bayType     String   @default("GENERAL")
+  isActive    Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  appointments Appointment[]
+}
+
+// v0.5.0 — immutable check-in snapshot for each workshop visit.
+model VehicleCheckIn {
+  id            String   @id @default(cuid())
+  checkInNo     String   @unique
+  customerId    String
+  vehicleId     String
+  workOrderId   String?
+  mileageIn     Int?
+  fuelLevel     String?
+  exteriorNotes String?
+  belongings    String?
+  keyCount      Int      @default(1)
+  checkedInAt   DateTime @default(now())
+  checkedInById String?
+  customerSignaturePath String?
+  reportPath    String?
+  createdAt     DateTime @default(now())
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vehicle       Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  workOrder     WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  photos        CheckInPhoto[]
+  @@index([vehicleId, checkedInAt])
+  @@index([workOrderId])
+}
+
+model CheckInPhoto {
+  id          String @id @default(cuid())
+  checkInId   String
+  filePath    String
+  sha256      String?
+  caption     String?
+  createdAt   DateTime @default(now())
+  checkIn     VehicleCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  @@index([checkInId])
+}
+
+model InspectionTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  vehicleType String   @default("GENERAL")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       InspectionTemplateItem[]
+  inspections VehicleInspection[]
+}
+
+model InspectionTemplateItem {
+  id          String @id @default(cuid())
+  templateId  String
+  category    String
+  label       String
+  sortOrder   Int    @default(0)
+  isRequired  Boolean @default(false)
+  template    InspectionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  @@index([templateId, sortOrder])
+}
+
+model VehicleInspection {
+  id          String   @id @default(cuid())
+  inspectionNo String  @unique
+  workOrderId String
+  templateId  String?
+  status      String   @default("DRAFT") // DRAFT / IN_PROGRESS / SUBMITTED / APPROVED
+  inspectedById String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  summary     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  template    InspectionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  findings    InspectionFinding[]
+  @@index([workOrderId, createdAt])
+}
+
+model InspectionFinding {
+  id            String @id @default(cuid())
+  inspectionId  String
+  category      String
+  itemLabel     String
+  result        String @default("NOT_CHECKED") // GOOD / ATTENTION / REPLACE / NOT_CHECKED
+  severity      String @default("INFO") // INFO / LOW / MEDIUM / HIGH / CRITICAL
+  recommendation String?
+  technicianNote String?
+  customerVisible Boolean @default(true)
+  sortOrder     Int @default(0)
+  inspection    VehicleInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  photos        InspectionPhoto[]
+  @@index([inspectionId, sortOrder])
+}
+
+model InspectionPhoto {
+  id          String @id @default(cuid())
+  findingId   String
+  filePath    String
+  sha256      String?
+  caption     String?
+  photoStage  String @default("DURING") // BEFORE / DURING / AFTER
+  createdAt   DateTime @default(now())
+  finding     InspectionFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  @@index([findingId])
+}
+
+model CustomerApproval {
+  id             String   @id @default(cuid())
+  workOrderId    String
+  revision       Int
+  approvalStatus String   @default("PENDING") // PENDING / PARTIAL / APPROVED / DECLINED / EXPIRED
+  approvalMethod String   @default("IN_PERSON") // IN_PERSON / SECURE_LINK
+  customerName   String?
+  approvedAt     DateTime?
+  expiresAt      DateTime?
+  tokenHash      String?
+  signaturePath  String?
+  snapshotJson   String
+  createdAt      DateTime @default(now())
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  lines          ApprovalLine[]
+  @@unique([workOrderId, revision])
+  @@index([workOrderId, createdAt])
+  @@index([approvalStatus, expiresAt])
+}
+
+model ApprovalLine {
+  id          String @id @default(cuid())
+  approvalId  String
+  workOrderItemId String?
+  description String
+  quantity    Float
+  unitPrice   Float
+  total       Float
+  decision    String @default("PENDING") // PENDING / APPROVED / DECLINED
+  decidedAt   DateTime?
+  approval    CustomerApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  @@index([approvalId])
+}
+
+model TechnicianTimeLog {
+  id          String   @id @default(cuid())
+  workOrderId String
+  technicianId String
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  pausedAt    DateTime?
+  durationSeconds Int @default(0)
+  status      String   @default("RUNNING") // RUNNING / PAUSED / STOPPED
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  technician  User @relation(fields: [technicianId], references: [id], onDelete: Restrict)
+  @@index([workOrderId, startedAt])
+  @@index([technicianId, status])
+}
+
+model PartReservation {
+  id              String   @id @default(cuid())
+  workOrderId     String
+  inventoryItemId String
+  quantity        Float
+  status          String   @default("RESERVED") // RESERVED / ISSUED / RELEASED / CANCELLED
+  reservedAt      DateTime @default(now())
+  reservedById    String?
+  notes           String?
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  issues          PartIssue[]
+  @@index([workOrderId, status])
+  @@index([inventoryItemId, status])
+}
+
+model PartIssue {
+  id              String   @id @default(cuid())
+  reservationId   String?
+  workOrderId     String
+  inventoryItemId String
+  quantity        Float
+  movementType    String   @default("ISSUE") // ISSUE / RETURN
+  idempotencyKey  String?  @unique
+  createdById     String?
+  createdAt       DateTime @default(now())
+  notes           String?
+  reservation     PartReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  @@index([workOrderId, createdAt])
+  @@index([inventoryItemId, createdAt])
+}
+
+model QCInspection {
+  id          String   @id @default(cuid())
+  workOrderId String
+  status      String   @default("PENDING") // PENDING / PASS / FAIL
+  inspectedById String?
+  roadTestDone Boolean @default(false)
+  roadTestNotes String?
+  summary     String?
+  inspectedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  items       QCInspectionItem[]
+  @@index([workOrderId, createdAt])
+}
+
+model QCInspectionItem {
+  id          String @id @default(cuid())
+  qcInspectionId String
+  label       String
+  result      String @default("PENDING") // PASS / FAIL / NA / PENDING
+  notes       String?
+  sortOrder   Int @default(0)
+  qcInspection QCInspection @relation(fields: [qcInspectionId], references: [id], onDelete: Cascade)
+  @@index([qcInspectionId, sortOrder])
+}
+
+// Optional-cloud foundation only: local events are queued; no cloud endpoint is enabled by default.
+model SyncOutbox {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  entityType  String
+  entityId    String
+  eventType   String
+  payloadJson String
+  status      String   @default("PENDING") // PENDING / SENT / FAILED / CONFLICT
+  retryCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  syncedAt    DateTime?
+  lastError   String?
+  @@index([status, createdAt])
+  @@index([entityType, entityId])
+}
+
+model SyncConflict {
+  id          String   @id @default(cuid())
+  eventId     String
+  entityType  String
+  entityId    String
+  localJson   String
+  remoteJson  String
+  status      String   @default("OPEN") // OPEN / RESOLVED_LOCAL / RESOLVED_REMOTE / MERGED
+  resolutionNote String?
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  @@index([status, createdAt])
+}
+
+
+// v0.5.1 — owner-controlled commission payroll. Rules are configured per employee by OWNER.
+model PayrollCommissionRule {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  basis          String   @default("LABOR") // LABOR / PARTS / GROSS_PROFIT / TOTAL
+  commissionRate Float    @default(0)
+  basicSalary    Float    @default(0)
+  isActive       Boolean  @default(false)
+  // Owner-entered statutory profile. Auto calculation stays disabled until the owner confirms it.
+  statutoryProfileComplete Boolean @default(false)
+  epfCategory String @default("MALAYSIAN_UNDER_60")
+  socsoCategory String @default("FIRST")
+  socsoSkbbk String @default("OFF")
+  eisEligible Boolean @default(true)
+  taxResidency String @default("RESIDENT")
+  taxCategory String @default("SINGLE")
+  qualifyingChildren Int @default(0)
+  disabledSelf Boolean @default(false)
+  disabledSpouse Boolean @default(false)
+  priorGrossYtd Float @default(0)
+  priorEpfYtd Float @default(0)
+  priorPcbYtd Float @default(0)
+  priorZakatYtd Float @default(0)
+  priorSocsoYtd Float @default(0)
+  taxReliefYtd Float @default(0)
+  taxReliefMonthly Float @default(0)
+  zakatMonthly Float @default(0)
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PayrollRun {
+  id          String        @id @default(cuid())
+  periodKey   String        @unique // YYYY-MM
+  startAt     DateTime
+  endAt       DateTime
+  status      String        @default("DRAFT") // DRAFT / APPROVED / PAID
+  totalAmount Float         @default(0)
+  approvedAt  DateTime?
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  entries     PayrollEntry[]
+}
+
+model PayrollEntry {
+  id               String     @id @default(cuid())
+  payrollRunId     String
+  userId           String
+  workOrderId      String?    @unique
+  employeeName     String
+  basis            String
+  basisAmount      Float      @default(0)
+  commissionRate   Float      @default(0)
+  commissionAmount Float      @default(0)
+  basicSalary      Float      @default(0)
+  allowance        Float      @default(0)
+  deduction        Float      @default(0)
+  epfEmployee      Float      @default(0)
+  socsoEmployee    Float      @default(0)
+  eisEmployee      Float      @default(0)
+  pcb              Float      @default(0)
+  zakat            Float      @default(0)
+  taxRelief         Float      @default(0)
+  epfEmployer      Float      @default(0)
+  socsoEmployer    Float      @default(0)
+  eisEmployer      Float      @default(0)
+  statutoryStatus String @default("MANUAL_REVIEW")
+  statutoryReviewed Boolean @default(false)
+  statutoryDetails String?
+  totalAmount      Float      @default(0)
+  notes            String?
+  createdAt        DateTime   @default(now())
+  payrollRun       PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  user             User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workOrder        WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  @@index([payrollRunId, userId])
+}
+
+model WorkOrderStageHistory {
+  id          String   @id @default(cuid())
+  workOrderId String
+  fromStage   String?
+  toStage     String
+  note        String?
+  actorUserId String?
+  actorName   String
+  createdAt   DateTime @default(now())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  @@index([workOrderId, createdAt])
+}

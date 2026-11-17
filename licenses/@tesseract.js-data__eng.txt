@@ -1,0 +1,6 @@
+@tesseract.js-data/eng 1.0.0
+Licence: MIT
+Source: https://github.com/naptha/tessdata
+==============================================================================
+
+This package does not include a licence file. Its package.json declares the licence above (author: Balearica <admin@scribeocr.com>).

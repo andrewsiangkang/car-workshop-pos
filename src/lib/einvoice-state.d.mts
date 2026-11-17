@@ -1,0 +1,12 @@
+export type EInvoiceEnv = "sandbox" | "production";
+type Rec = { eInvoiceUuid?: string | null; eInvoiceStatus?: string | null; eInvoiceEnv?: string | null } | null | undefined;
+export const SANDBOX: "sandbox";
+export const PRODUCTION: "production";
+export function isLiveStatus(status: string | null | undefined): boolean;
+export function envFromSandboxFlag(sandbox: boolean | null | undefined): EInvoiceEnv;
+export function recordEnv(rec: { eInvoiceEnv?: string | null } | null | undefined): EInvoiceEnv;
+export function isLiveEInvoice(rec: Rec): boolean;
+export function isLiveIn(rec: Rec, env: EInvoiceEnv): boolean;
+export function isReportedFor(rec: Rec, env: EInvoiceEnv): boolean;
+export function isFinalStatus(status: string | null | undefined): boolean;
+export function isNettedInConsolidation(cn: { eInvoiceStatus?: string | null } | null | undefined): boolean;
