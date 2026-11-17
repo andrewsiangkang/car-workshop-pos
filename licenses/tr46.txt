@@ -1,0 +1,6 @@
+tr46 0.0.3
+Licence: MIT
+Source: https://github.com/Sebmaster/tr46.js#readme
+==============================================================================
+
+This package does not include a licence file. Its package.json declares the licence above (author: Sebastian Mayr <npm@smayr.name>).
