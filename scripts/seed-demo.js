@@ -11,8 +11,6 @@
 // a public repository can be downloaded by any GitHub user.
 const fs = require("fs");
 const crypto = require("crypto");
-const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
 
 const MIN_PASSWORD = 8; // same as MIN_PASSWORD_LENGTH in src/lib/accounts-core.mjs
 // Easy to read out and type: no 0 / O / 1 / l / I.
@@ -87,6 +85,7 @@ function totals(items, discount = 0) {
 }
 
 async function main(prisma, passwords = demoPasswords()) {
+  const bcrypt = require("bcryptjs");
   const ownerHash = await bcrypt.hash(passwords.owner, 10);
   const staffHash = await bcrypt.hash(passwords.staff, 10);
   const owner = await prisma.user.create({
@@ -242,6 +241,7 @@ async function main(prisma, passwords = demoPasswords()) {
 }
 
 if (require.main === module) {
+  const { PrismaClient } = require("@prisma/client");
   const prisma = new PrismaClient();
   main(prisma)
     .catch((e) => { console.error(e); process.exit(1); })

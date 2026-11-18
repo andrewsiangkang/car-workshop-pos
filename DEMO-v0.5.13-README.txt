@@ -1,0 +1,18 @@
+Car Workshop POS Demo v0.5.13
+
+Local Windows demo build:
+1. Extract the source ZIP.
+2. Open CMD in the project folder.
+3. Run: npm ci
+4. Run: npx prisma generate
+5. Run: npm run electron:dist:demo
+6. The installer is created in dist\ and demo-login.txt is created in the project folder.
+
+The demo build uses a separate application ID, app title, port, and user-data directory. It is local-computer only. The demo database is freshly generated and seeded for each build. The production template remains empty.
+
+Credentials:
+- Boss: demo
+- Staff: staff
+- Passwords are randomly generated per build unless DEMO_OWNER_PASSWORD / DEMO_STAFF_PASSWORD are supplied in the environment. Keep demo-login.txt private. Secret-supplied passwords are never copied into that file.
+
+This source package is not a prebuilt Windows installer. Build the installer on Windows after installing dependencies.

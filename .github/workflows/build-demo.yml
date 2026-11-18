@@ -48,19 +48,11 @@ jobs:
           node-version: 24
       - run: npm ci
       - run: npx prisma generate
-      - name: Create template database
-        shell: bash
-        run: npx prisma db push --skip-generate
+      - name: Create and seed isolated demo database
+        run: npm run db:template:demo
         env:
-          DATABASE_URL: file:./template.db
-      - name: Fill with demo data
-        shell: bash
-        run: node scripts/seed-demo.js
-        env:
-          DATABASE_URL: file:./template.db
           DEMO_OWNER_PASSWORD: ${{ secrets.DEMO_OWNER_PASSWORD }}
           DEMO_STAFF_PASSWORD: ${{ secrets.DEMO_STAFF_PASSWORD }}
-          DEMO_LOGIN_FILE: demo-login.txt
       - name: Production build
         run: npm run build
         env:
@@ -71,7 +63,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - uses: actions/upload-artifact@v7
         with:
-          name: WorkshopPOS-DEMO-Setup
+          name: WorkshopPOS-DEMO-Setup-v0.5.13
           if-no-files-found: error
           path: |
             dist/*.exe

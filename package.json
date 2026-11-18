@@ -1,6 +1,6 @@
 {
   "name": "car-workshop-pos",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,8 +17,9 @@
     "db:template": "node scripts/create-template-db.js",
     "preelectron:dist": "node scripts/copy-ocr.js --strict && npm run build && npm run db:template",
     "electron:dist:demo": "electron-builder --win --config electron-builder-demo.yml --publish never",
-    "preelectron:dist:demo": "node scripts/copy-ocr.js --strict && npm run build && npm run db:template",
-    "test": "node --test tests/*.test.mjs"
+    "preelectron:dist:demo": "node scripts/copy-ocr.js --strict && npm run build && npm run db:template:demo",
+    "test": "node --test tests/*.test.mjs",
+    "db:template:demo": "node scripts/create-demo-template.js"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
